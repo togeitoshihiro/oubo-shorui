@@ -140,7 +140,7 @@
 <input type="file" id="pick" accept="image/*">
 
 <script>
-var APP_VERSION = '2026-11-13-24';
+var APP_VERSION = '2026-11-13-25';
 var API = 'https://script.google.com/macros/s/AKfycbxXqXGMgSnxYJre2Lpq8D7lV5ksrwsQl8tC4yrOCl5EN2Z_IRVb45DH_fQrS73eaLnGUw/exec';
 var Q = new URLSearchParams(location.search);
 var TOKEN = (Q.get('t') || '').trim();
@@ -286,7 +286,7 @@ function renderHome(updating) {
   var done = cand.filter(function(x){ return !untouched(x); }).sort(sortNew);
   drawTop(updating);
   var html = '';
-  if (window._showSearch) html += '<input class="search" id="sq" placeholder="🔍 名前・フリガナ・No.でさがす" oninput="searchCand(this.value)"><div id="sres"></div>';
+  if (window._showSearch) html += '<input class="search" id="sq" placeholder="名前・フリガナ・No.でさがす" oninput="searchCand(this.value)"><div id="sres"></div>';
   html += '<div class="seg">' +
     '<button class="' + (MODE === 'cand' ? 'on' : '') + '" onclick="setMode(\'cand\')">未対応<span class="n">' + a.length + '</span></button>' +
     '<button class="' + (MODE === 'done' ? 'on' : '') + '" onclick="setMode(\'done\')">対応済<span class="n">' + done.length + '</span></button>' +
@@ -393,7 +393,7 @@ function showDetail(i) {
   html += '<h2>面談の内容</h2><div class="card"><p class="sub" style="margin-top:0">入れると自動で保存します。マイクを押すと声で入力できます。</p>';
   html += '<button class="voice" id="mic_all" onclick="listen(\'other\', this)"><span class="vi">' + MIC_SVG + '</span><span><b>まとめて話す</b><small id="mic_all_t">「希望エリアは〜、前職は〜」のように項目の名前を言うと、その項目に入ります</small></span></button>';
   FIELDS.forEach(function(f){ html += fieldHtml(x, f); });
-  html += '<button class="btn main" onclick="saveAll()">💾 入力した内容をシートに保存</button><p class="sub center" id="allSaved"></p></div>';
+  html += '<p class="sub center" id="allSaved"></p></div>';
   html += '<h2>結果</h2>';
   if (!isRejected(x) && !/^採用/.test(x.hire)) {
     html += '<div class="row2"><button class="btn sec" onclick="noReach()">📵 電話つながらず</button><button class="btn sec" onclick="holdOn()">⏸ 保留（検討中）</button></div>';
@@ -648,7 +648,7 @@ function drawTop(updating) {
   if (!STAFF) { g.classList.add('hide'); return; }
   var who = LIST && LIST.staff ? staffLabel(LIST.staff) : '';
   g.innerHTML = '<div><div class="ttl" onclick="goHome()">採用管理</div><div class="who2" id="homeMark">' + esc(who) + '<span id="upd">' + (updating ? '・更新中…' : '') + '</span></div></div>' +
-    (ON_HOME ? '<div style="display:flex;gap:6px"><button onclick="openSearch()" aria-label="さがす">🔍</button><button onclick="showStaffList(true)">⟳ 更新</button></div>' : '<button onclick="goHome()">‹ 一覧</button>');
+    (ON_HOME ? '<div style="display:flex;gap:6px"><button onclick="openSearch()" aria-label="さがす" style="display:flex;align-items:center;justify-content:center"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg></button><button onclick="showStaffList(true)">⟳ 更新</button></div>' : '<button onclick="goHome()">‹ 一覧</button>');
   g.classList.remove('hide');
 }
 function goHome() {
@@ -813,6 +813,99 @@ function saveInfo(first) {
     if (first) goNext(); else showList(false);
   });
 }
+
+// ===== 新規契約DR情報テンプレート（入力→文面を確認→本部連絡網へ送る）=====
+var TM = null;
+function showTmpl() {
+  var inf = S.info || {};
+  var kmap = { '弊社': '弊社の貨物保険', '佐川アドバンス': '佐川AD', 'ご自身で加入': 'ご自身でご用意' };
+  if (!TM) TM = {
+    name: S.name + (S.kana ? '（' + S.kana + '）' : ''), mail: 'フォームに送信予定', start: inf.start || '',
+    car: S.car === 'リース' ? 'リース貸出' : S.car === '持込' ? '持込' : '', kamotsu: kmap[inf.kamotsu] || inf.kamotsu || '',
+    nini: inf.nini || '', itaku: inf.itaku || '', eigyo: '', biko: inf.days ? '週' + String(inf.days).replace(/^週/, '') + '稼働' : '' };
+  var f = [['name', '漢字フルネーム（フリガナ）'], ['mail', 'メールアドレス'], ['start', '稼働開始予定日'], ['car', '車両はリースか持込か'],
+    ['kamotsu', '貨物保険の加入状況（ご自身でご用意・弊社の貨物保険・佐川AD）'], ['nini', '持込車両の場合、任意保険の加入状況'],
+    ['itaku', '委託会社名'], ['eigyo', '委託先営業所名'], ['biko', '備考（なければ空のまま）']];
+  var html = '<h1>新規契約DR情報テンプレート</h1><p class="sub">入れた内容で文面を作ります。送り先は本部連絡網（チャットワーク）です。</p>';
+  f.forEach(function(x) {
+    if (x[0] === 'nini' && TM.car !== '持込') return;
+    html += '<div class="fld"><label>' + esc(x[1]) + '</label>' + (x[0] === 'biko'
+      ? '<textarea id="tm_biko" rows="3">' + esc(TM.biko) + '</textarea>'
+      : '<input id="tm_' + x[0] + '" value="' + esc(TM[x[0]]) + '"' + (x[0] === 'eigyo' ? ' placeholder="例：潮来営業所"' : '') + '>') + '</div>';
+  });
+  html += '<button class="btn main" onclick="previewTmpl()">文面を確認する</button><button class="btn ghost" onclick="TM=null;showList(false)">もどる</button>';
+  view.innerHTML = html; window.scrollTo(0, 0);
+}
+function tmplText() {
+  var L = ['新規DR', '・漢字フルネーム（フリガナ）', '　' + TM.name, '・メールアドレス', '　' + TM.mail, '・稼働開始予定日', '　' + TM.start,
+    '・車両はリースか持込か', '　' + TM.car, '・貨物保険の加入状況（ご自身でご用意・弊社の貨物保険・佐川AD）', '　' + TM.kamotsu];
+  if (TM.car === '持込') L.push('・持込車両の場合、任意保険の加入状況', '　' + TM.nini);
+  L.push('・委託会社名', '　' + TM.itaku, '・委託先営業所名', '　' + TM.eigyo);
+  if (TM.biko.trim()) L.push('・備考', TM.biko.trim());
+  L.push('', '（担当：' + (S.tanto || '') + '）');
+  return L.join('\n');
+}
+function previewTmpl() {
+  ['name', 'mail', 'start', 'car', 'kamotsu', 'nini', 'itaku', 'eigyo', 'biko'].forEach(function(k){ var e = document.getElementById('tm_' + k); if (e) TM[k] = e.value.trim(); });
+  var miss = [['name', '名前'], ['start', '稼働開始予定日'], ['car', '車両'], ['kamotsu', '貨物保険'], ['itaku', '委託会社名'], ['eigyo', '委託先営業所名']]
+    .filter(function(m){ return !TM[m[0]]; }).map(function(m){ return m[1]; });
+  if (TM.car === '持込' && !TM.nini) miss.push('任意保険');
+  var test = S.no === '練習用';
+  var html = '<h1>この文面で送ります</h1>' +
+    (miss.length ? '<div class="note"><b>まだ空の項目があります：</b>' + esc(miss.join('・')) + '</div>' : '') +
+    '<div class="card" style="white-space:pre-wrap;font-size:14px;line-height:1.6">' + esc(tmplText()) + '</div>' +
+    '<p class="sub">送り先：東迎商事株式会社　本部連絡網（AI秘書から送ります）' + (test ? '<br><b>テストなので、実際には送りません。</b>' : '') + '</p>' +
+    '<button class="btn main" onclick="sendTmpl()">💬 チャットワークで送る</button><button class="btn ghost" onclick="showTmpl()">直す</button>';
+  view.innerHTML = html; window.scrollTo(0, 0);
+}
+function sendTmpl() {
+  loading('送っています…');
+  run('sendTemplate', [TOKEN, tmplText()], function(r) {
+    if (!r || !r.ok) { view.innerHTML = '<h1>送れませんでした</h1><p>電波のよいところで、もう一度ためしてください。</p><button class="btn main" onclick="previewTmpl()">もどる</button>'; return; }
+    S.info = S.info || {}; S.info.tmpl = '済み'; if (r.checklist) S.checklist = r.checklist; TM = null;
+    view.innerHTML = '<div class="big-check">✓</div><h1 class="center">' + (r.test ? 'テストなので送りませんでした' : '本部連絡網に送りました') + '</h1>' +
+      '<p class="center sub">「新規契約DR情報テンプレート共有」を済みにしました。</p><button class="btn main" onclick="showList(false)">書類の一覧にもどる</button>';
+  }, function() { view.innerHTML = '<h1>送れませんでした</h1><p>電波のよいところで、もう一度ためしてください。</p><button class="btn main" onclick="previewTmpl()">もどる</button>'; });
+}
+
+// ===== 契約書類チェックリストを PDF でスマホに表示 =====
+function loadPdfJs(cb) {
+  if (window.pdfjsLib) return cb();
+  var sc = document.createElement('script');
+  sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  sc.onload = function() { pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; cb(); };
+  sc.onerror = function() { cb('load'); };
+  document.head.appendChild(sc);
+}
+function showChecklist() {
+  loading('チェックリストを準備しています…');
+  var back = '<button class="btn ghost" onclick="showList(false)">書類の一覧にもどる</button>';
+  run('checklistPdf', [TOKEN], function(r) {
+    if (!r || !r.ok) { view.innerHTML = '<h1>チェックリストを出せませんでした</h1><p>少し待ってから、もう一度ためしてください。</p>' + back; return; }
+    loadPdfJs(function(err) {
+      if (err) { view.innerHTML = '<h1>チェックリストを出せませんでした</h1>' + back; return; }
+      var bin = atob(r.pdf), u = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+      view.innerHTML = '<h1>契約書類チェックリスト</h1><p class="sub">2本の指で広げると大きく見られます。</p><div id="pdfv"></div>' + back +
+        '<a class="btn ghost" href="' + esc(r.url) + '" target="_blank" rel="noopener">スプレッドシートで開く</a>';
+      window.scrollTo(0, 0);
+      pdfjsLib.getDocument({ data: u }).promise.then(function(doc) {
+        var box = document.getElementById('pdfv'), w = box.clientWidth, dpr = Math.min(window.devicePixelRatio || 1, 3);
+        var draw = function(n) {
+          if (n > doc.numPages) return;
+          doc.getPage(n).then(function(pg) {
+            var vp1 = pg.getViewport({ scale: 1 }), sc = w / vp1.width, vp = pg.getViewport({ scale: sc * dpr });
+            var cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height;
+            cv.style.cssText = 'width:100%;display:block;background:#fff;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.12);margin-bottom:10px';
+            box.appendChild(cv);
+            pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise.then(function(){ draw(n + 1); });
+          });
+        };
+        draw(1);
+      });
+    });
+  }, function() { view.innerHTML = '<h1>チェックリストを出せませんでした</h1><p>電波のよいところで、もう一度ためしてください。</p>' + back; });
+}
 function markTask(k) {
   var v = (S.info && S.info[k] === '済み') ? '' : '済み';
   var o = {}; o[k] = v; S.info = S.info || {}; S.info[k] = v;
@@ -852,8 +945,8 @@ function showList(resume) {
     '<button class="btn sec" style="margin-top:10px" onclick="showInfo(false)">契約情報を入れる・直す</button></div>';
   html += '<h2>その他必須業務</h2><div class="card">' +
     '<button class="btn ' + (inf.line === '済み' ? 'main' : 'sec') + '" onclick="markTask(\'line\')">' + (inf.line === '済み' ? '✓ ' : '') + 'LINE＠のメッセージで名前を送信' + (inf.line === '済み' ? '（済み）' : '') + '</button>' +
-    '<button class="btn ' + (inf.tmpl === '済み' ? 'main' : 'sec') + '" onclick="markTask(\'tmpl\')">' + (inf.tmpl === '済み' ? '✓ ' : '') + '新規契約DR情報テンプレート共有' + (inf.tmpl === '済み' ? '（済み）' : '') + '</button></div>';
-  if (S.checklist) html += '<a class="btn main" href="' + esc(S.checklist) + '" target="_blank" rel="noopener">📋 契約書類チェックリストを開く</a>';
+    '<button class="btn ' + (inf.tmpl === '済み' ? 'main' : 'sec') + '" onclick="showTmpl()">' + (inf.tmpl === '済み' ? '✓ ' : '') + '新規契約DR情報テンプレート共有' + (inf.tmpl === '済み' ? '（済み）' : '') + '</button></div>';
+  if (S.checklist) html += '<button class="btn main" onclick="showChecklist()">📋 契約書類チェックリストを見る</button>';
   else html += '<p class="sub center">契約書類チェックリストは、このあと自動で作られます。</p>';
   html += '<button class="btn ghost" onclick="askCar()">車（持込・リース）を変える</button>';
   if (S.no === '練習用') html += '<button class="btn danger" onclick="resetTest()">↺ テストをリセット（最初の状態にもどす）</button>';
