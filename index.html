@@ -87,6 +87,9 @@
   .hist { margin:8px 0 0; padding:0; list-style:none; font-size:13.5px; }
   .hist li { padding:6px 0 6px 18px; position:relative; border-bottom:1px dashed var(--line); }
   .hist li:before { content:''; position:absolute; left:4px; top:13px; width:6px; height:6px; border-radius:50%; background:var(--warn); }
+  .hist li.h-ai:before { background:#2459c6; } .hist li.h-staff:before { background:var(--g); }
+  .modal { position:fixed; inset:0; background:rgba(10,20,15,.45); display:flex; align-items:flex-end; justify-content:center; z-index:50; }
+  .modal .sheet { background:#fff; width:100%; max-width:560px; border-radius:20px 20px 0 0; padding:20px 16px 28px; box-shadow:0 -6px 24px rgba(0,0,0,.15); }
   .fld { margin:10px 0; }
   .fld label { display:block; font-size:12.5px; color:var(--sub); margin-bottom:4px; font-weight:700; letter-spacing:.03em; }
   .frow { display:flex; gap:8px; align-items:stretch; }
@@ -163,6 +166,15 @@ function isCand(x) { return !isHired(x) && !isRejected(x) && !OUT.test(x.state) 
 function talked(x) { return !!x.interview || /検討中|返事待ち|案件探し/.test(x.state); }
 // まだ対応していない人：シートに入力されただけ（連絡状態が空かSMS送信済みで、面談の内容もまだ）
 function noReachOnly(v) { return !String(v || '').split(/\n|　/).filter(function(l){ return l.trim() && !/電話つながらず/.test(l); }).length; }
+function staffSmsList(x) { return String(x.other || '').split(/\n/).filter(function(l){ return /SMS送信（/.test(l); }).map(function(l){ return l.trim(); }); }
+function aiSmsLabel(x) { return x.aiSms ? String(x.aiSms).replace(/^\d{4}-(\d{2})-(\d{2})/, function(_, m, d){ return Number(m) + '/' + Number(d); }) : ''; }
+function contactLog(x) {
+  var out = [];
+  if (x.aiSms) out.push({ k: 'ai', t: aiSmsLabel(x) + ' AI秘書が応募時のSMSを送信' });
+  else if (/SMS送信済み/.test(x.state)) out.push({ k: 'staff', t: 'SMS送信済み（担当者が送信・日時はシートに記録なし）' });
+  String(x.other || '').split(/\n/).forEach(function(l){ l = l.trim(); if (/電話つながらず/.test(l)) out.push({ k: 'ng', t: l }); else if (/SMS送信（/.test(l)) out.push({ k: 'staff', t: l }); });
+  return out;
+}
 function noReachList(x) { return String(x.other || '').split(/\n/).filter(function(l){ return /電話つながらず/.test(l); }).map(function(l){ return l.trim(); }); }
 function lastNote(x) { var ls = String(x.other || '').split(/\n/).map(function(l){ return l.trim(); }).filter(String); return ls.length ? ls[ls.length - 1] : ''; }
 function noReachCount(x) { return (String(x.other || '').match(/電話つながらず/g) || []).length; }
@@ -214,6 +226,9 @@ function personBtn(x, onclick) {
   if (x.token) chips += '<span class="tag doing">書類 ' + x.done + '枚</span>';
   var nr = noReachList(x);
   if (nr.length) chips += '<span class="tag ng">📵 つながらず ' + nr.length + '回</span>';
+  if (x.aiSms) chips += '<span class="tag blue">AIがSMS送信 ' + esc(aiSmsLabel(x).split(' ')[0]) + '</span>';
+  else if (/SMS送信済み/.test(x.state)) chips += '<span class="tag">SMS送信済み（担当者）</span>';
+  var ss = staffSmsList(x).length; if (ss) chips += '<span class="tag hire">担当がSMS ' + ss + '回</span>';
   if (x.state && !/^SMS送信済み$/.test(x.state)) chips += '<span class="tag blue">' + esc(x.state) + '</span>';
   if (x.interview) chips += '<span class="tag">面接 ' + esc(String(x.interview).replace(/^\d{4}\//, '')) + '</span>';
   var place = (x.pref || '') + (x.city || '');
@@ -324,10 +339,10 @@ function showDetail(i) {
   if (x.test) html += '<div class="note"><b>テスト用の応募者です。</b>入力・採用・不採用を押しても、求人シートには書きません。電話番号は「00000000000」なのでつながりません。SMSは送信を押さなければ送られません。 <a href="#" onclick="resetTest();return false;" style="color:var(--g);font-weight:700">テストの入力を消す</a></div>';
   html += '<div class="card"><div class="hero"><div class="av">' + esc(String(x.name).charAt(0)) + '</div><div><div class="nm">' + esc(x.name) + '</div><div class="sub" style="font-size:13px">' + esc(x.kana) + ' · ' + esc(x.label) + ' No.' + esc(x.no) + '</div></div></div>' +
     '<div class="grid">' + [['年齢', x.age ? x.age + '歳' : ''], ['性別', x.sex], ['住所', (x.pref || '') + (x.city || '')], ['応募', [x.media, x.asked].filter(String).join(' · ')], ['電話', x.tel], ['担当', x.tanto]].map(function(p){ return '<div><span>' + p[0] + '</span>' + esc(p[1] || '—') + '</div>'; }).join('') + '</div>';
-  if (tel) html += '<div class="acts"><a class="call" href="tel:' + tel + '"><span class="ai">' + TEL_SVG + '</span>電話</a><a class="sms" href="' + smsHref(x) + '"><span class="ai">' + SMS_SVG + '</span>SMS</a></div>';
+  if (tel) html += '<div class="acts"><a class="call" href="tel:' + tel + '"><span class="ai">' + TEL_SVG + '</span>電話</a><a class="sms" href="' + smsHref(x) + '" onclick="smsTapped(' + x.i + ')"><span class="ai">' + SMS_SVG + '</span>SMS</a></div>';
   html += '</div>';
-  var nr = noReachList(x);
-  if (nr.length) html += '<div class="card"><b style="font-size:14px">📵 電話がつながらなかった記録（' + nr.length + '回）</b><ul class="hist">' + nr.map(function(l){ return '<li>' + esc(l) + '</li>'; }).join('') + '</ul></div>';
+  var cl = contactLog(x);
+  if (cl.length) html += '<div class="card"><b style="font-size:14px">連絡の記録</b><ul class="hist">' + cl.map(function(c){ return '<li class="h-' + c.k + '">' + esc(c.t) + '</li>'; }).join('') + '</ul></div>';
   html += '<h2>面談の内容</h2><div class="card"><p class="sub" style="margin-top:0">入れると自動で保存します。マイクを押すと声で入力できます。</p>';
   html += '<button class="voice" id="mic_all" onclick="listen(\'other\', this)"><span class="vi">' + MIC_SVG + '</span><span><b>まとめて話す</b><small id="mic_all_t">話した内容が「その他」に入ります</small></span></button>';
   FIELDS.forEach(function(f){ html += fieldHtml(x, f); });
@@ -396,13 +411,35 @@ function noReach() {
   f.other = (base ? base + '\n' : '') + todayMD() + ' 電話つながらず（' + (LIST.staff || '') + '）';
   if (el) el.value = f.other;
   writeFields(x, f, function(ok) { if (ok) { view.innerHTML = '<div class="big-check">📵</div><h1 class="center">「電話つながらず」を記録しました</h1><p class="center sub">' + esc(x.name) + 'さんは「対応済」に入りました。' + (x.test ? '（テストなのでシートには書きません）' : '') + '</p>' +
-    (String(x.tel || '').replace(/\D/g, '') ? '<a class="btn sec" style="display:flex;align-items:center;justify-content:center;gap:8px;color:#2459c6" href="' + smsHref(x) + '"><span class="ai" style="width:18px;height:18px">' + SMS_SVG + '</span>SMSを送る</a>' : '') + '<button class="btn main" onclick="renderHome()">一覧にもどる</button><button class="btn ghost" onclick="showDetail(' + x.i + ')">この人の画面にもどる</button>'; } });
+    (String(x.tel || '').replace(/\D/g, '') ? '<a class="btn sec" style="display:flex;align-items:center;justify-content:center;gap:8px;color:#2459c6" href="' + smsHref(x) + '" onclick="smsTapped(' + x.i + ')"><span class="ai" style="width:18px;height:18px">' + SMS_SVG + '</span>SMSを送る</a>' : '') + '<button class="btn main" onclick="renderHome()">一覧にもどる</button><button class="btn ghost" onclick="showDetail(' + x.i + ')">この人の画面にもどる</button>'; } });
 }
 function holdOn() {
   var x = CUR, f = collectFields(x);
   f.state = '検討中';
   var el = document.getElementById('f_state'); if (el) el.value = '検討中';
   writeFields(x, f, function(ok) { if (ok) { view.innerHTML = '<div class="big-check">⏸</div><h1 class="center">保留（検討中）にしました</h1><p class="center sub">' + esc(x.name) + 'さんは「対応済」に入りました。' + (x.test ? '（テストなのでシートには書きません）' : '') + '</p><button class="btn main" onclick="renderHome()">一覧にもどる</button>'; } });
+}
+var SMS_PENDING = null;
+function smsTapped(i) { SMS_PENDING = i; setTimeout(askSmsSent, 4000); }
+function askSmsSent() {
+  if (SMS_PENDING === null || document.hidden || document.getElementById('smsq')) return;
+  var x = LIST.items[SMS_PENDING];
+  var d = document.createElement('div'); d.className = 'modal'; d.id = 'smsq';
+  d.innerHTML = '<div class="sheet"><b style="font-size:17px">' + esc(x.name) + 'さんにSMSを送りましたか？</b><p class="sub">送った場合は「連絡の記録」に残します。</p>' +
+    '<button class="btn main" onclick="smsSent(true)">送った</button><button class="btn sec" onclick="smsSent(false)">送っていない</button></div>';
+  document.body.appendChild(d);
+}
+document.addEventListener('visibilitychange', function(){ if (!document.hidden) setTimeout(askSmsSent, 400); });
+function smsSent(yes) {
+  var i = SMS_PENDING; SMS_PENDING = null;
+  var m = document.getElementById('smsq'); if (m) m.remove();
+  if (!yes || i === null) return;
+  var x = LIST.items[i];
+  var f = {}; f.other = (x.other ? x.other + '\n' : '') + todayMD() + ' SMS送信（' + (LIST.staff || '') + '）';
+  writeFields(x, f, function(ok) {
+    var el = document.getElementById('f_other'); if (el && ok) el.value = x.other;
+    if (CUR === x && document.getElementById('f_other') && ok) showDetail(x.i);
+  });
 }
 // 声で入力（iPhoneのSafariなど、対応している端末だけ。だめならキーボードのマイクを案内）
 var REC = null;
