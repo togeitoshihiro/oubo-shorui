@@ -4,48 +4,65 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>書類の写真をおくる</title>
+<title>応募者の書類アップロード</title>
 <style>
   :root { --g:#1a7f37; --gd:#116329; --bg:#f6f8f6; --ink:#1d1d1f; --sub:#5b5f66; --line:#d9ded9; --warn:#b42318; --warnbg:#fdecea; --note:#fff7e0; }
   * { box-sizing:border-box; }
   html, body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; }
-  body { font-size:20px; line-height:1.6; -webkit-text-size-adjust:100%; }
-  .wrap { max-width:520px; margin:0 auto; padding:16px 16px 40px; }
+  body { font-size:19px; line-height:1.6; -webkit-text-size-adjust:100%; }
+  .wrap { max-width:560px; margin:0 auto; padding:12px 16px 40px; }
   .bar { position:sticky; top:0; background:var(--bg); padding:10px 0 8px; z-index:5; }
-  .prog { height:12px; background:#e3e8e3; border-radius:6px; overflow:hidden; }
+  .who { font-size:16px; color:var(--sub); display:flex; justify-content:space-between; gap:8px; }
+  .who a { color:var(--sub); }
+  .prog { height:10px; background:#e3e8e3; border-radius:6px; overflow:hidden; margin-top:6px; }
   .prog > i { display:block; height:100%; background:var(--g); width:0; transition:width .3s; }
-  .count { font-size:17px; color:var(--sub); margin-top:4px; text-align:right; }
-  h1 { font-size:26px; line-height:1.4; margin:12px 0 10px; }
+  .count { font-size:16px; color:var(--sub); margin-top:2px; text-align:right; }
+  h1 { font-size:24px; line-height:1.4; margin:10px 0 8px; }
+  h2 { font-size:19px; margin:18px 0 6px; }
   p { margin:8px 0; }
-  .sub { color:var(--sub); font-size:18px; }
-  .card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:18px; margin:14px 0; }
-  .btn { display:block; width:100%; border:0; border-radius:16px; padding:20px 16px; font-size:22px; font-weight:700; margin:12px 0; cursor:pointer; text-align:center; text-decoration:none; font-family:inherit; }
+  .sub { color:var(--sub); font-size:17px; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:16px; margin:12px 0; }
+  .btn { display:block; width:100%; border:0; border-radius:14px; padding:18px 14px; font-size:21px; font-weight:700; margin:10px 0; cursor:pointer; text-align:center; text-decoration:none; font-family:inherit; }
   .btn.main { background:var(--g); color:#fff; box-shadow:0 3px 0 var(--gd); }
   .btn.main:active { transform:translateY(2px); box-shadow:0 1px 0 var(--gd); }
   .btn.sec { background:#fff; color:var(--ink); border:2px solid var(--line); }
-  .btn.ghost { background:transparent; color:var(--sub); font-size:18px; font-weight:400; text-decoration:underline; padding:10px; }
-  .btn:disabled { opacity:.5; }
+  .btn.ghost { background:transparent; color:var(--sub); font-size:17px; font-weight:400; text-decoration:underline; padding:8px; margin:4px 0; }
   .pic { width:100%; aspect-ratio: 4/3; background:#eef2ee; border-radius:12px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
   .pic img { width:100%; height:100%; object-fit:contain; background:#222; }
-  .pic svg { width:70%; height:auto; }
+  .pic svg { width:60%; height:auto; }
   .warn { background:var(--warnbg); color:var(--warn); border-radius:12px; padding:12px 14px; font-weight:700; }
   .note { background:var(--note); border-radius:12px; padding:12px 14px; }
-  .ok { color:var(--g); font-weight:700; }
+  .checks { background:#fff; border:1px solid var(--line); border-radius:12px; padding:10px 14px; margin:10px 0; }
+  .checks b { font-size:16px; color:var(--sub); }
+  .checks ul { margin:4px 0 0; padding-left:1.2em; }
   ul.list { list-style:none; padding:0; margin:8px 0; }
-  ul.list li { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:12px 4px; border-bottom:1px solid var(--line); font-size:19px; }
-  ul.list li b { white-space:nowrap; font-size:17px; }
+  ul.list li { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:11px 4px; border-bottom:1px solid var(--line); font-size:18px; }
+  ul.list li b { white-space:nowrap; font-size:16px; }
   .mark-ok { color:var(--g); } .mark-no { color:var(--warn); } .mark-later { color:#a15c00; }
-  .spin { width:56px; height:56px; border:6px solid #cfe5d4; border-top-color:var(--g); border-radius:50%; animation:sp 1s linear infinite; margin:24px auto; }
+  .person { display:block; width:100%; text-align:left; background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin:8px 0; font-family:inherit; font-size:18px; color:var(--ink); cursor:pointer; }
+  .person .nm { font-weight:700; font-size:20px; }
+  .person .meta { font-size:15px; color:var(--sub); }
+  .tag { display:inline-block; font-size:14px; padding:1px 8px; border-radius:10px; margin-left:6px; vertical-align:middle; }
+  .tag.hire { background:#e6f4ea; color:var(--g); font-weight:700; }
+  .tag.doing { background:var(--note); color:#a15c00; }
+  input.search { width:100%; font-size:19px; padding:12px 14px; border-radius:12px; border:2px solid var(--line); font-family:inherit; }
+  .spin { width:52px; height:52px; border:6px solid #cfe5d4; border-top-color:var(--g); border-radius:50%; animation:sp 1s linear infinite; margin:24px auto; }
   @keyframes sp { to { transform:rotate(360deg); } }
   .center { text-align:center; }
   .hide { display:none !important; }
   input[type=file] { display:none; }
-  .big-check { font-size:72px; text-align:center; color:var(--g); line-height:1; margin:10px 0; }
+  .big-check { font-size:64px; text-align:center; color:var(--g); line-height:1; margin:8px 0; }
+  #qr { display:flex; justify-content:center; margin:14px 0; }
+  #qr img, #qr canvas { width:240px !important; height:240px !important; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 <div class="wrap">
-  <div class="bar hide" id="bar"><div class="prog"><i id="progi"></i></div><div class="count" id="count"></div></div>
+  <div class="bar hide" id="bar">
+    <div class="who"><span id="whoName"></span><a href="#" id="toList" class="hide" onclick="backToList();return false;">← 応募者の一覧へ</a></div>
+    <div class="prog"><i id="progi"></i></div><div class="count" id="count"></div>
+  </div>
   <div id="view"><div class="spin"></div><p class="center sub">読み込んでいます…</p></div>
 </div>
 <input type="file" id="cam" accept="image/*" capture="environment">
@@ -53,15 +70,14 @@
 
 <script>
 var API = 'https://script.google.com/macros/s/AKfycbxXqXGMgSnxYJre2Lpq8D7lV5ksrwsQl8tC4yrOCl5EN2Z_IRVb45DH_fQrS73eaLnGUw/exec';
-var TOKEN = (new URLSearchParams(location.search).get('t') || '').trim();
-var S = null;          // サーバーからの状態
-var steps = [];        // 今回聞く書類
-var cur = 0;           // いまの書類の番号
-var page = 1;          // その書類の何枚目か
-var shot = null;       // 撮った写真 {data, mime, url}
+var Q = new URLSearchParams(location.search);
+var TOKEN = (Q.get('t') || '').trim();
+var STAFF = (Q.get('staff') || '').trim();
+try { if (STAFF) localStorage.setItem('staffKey', STAFF); else STAFF = localStorage.getItem('staffKey') || ''; } catch (e) {}
+var S = null, steps = [], cur = 0, page = 1, shot = null, LIST = null;
 var view = document.getElementById('view');
 
-function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
 function run(fn, args, ok, ng) {
   ng = ng || function(e){ showError(e); };
   fetch(API, { method: 'POST', body: JSON.stringify({ fn: fn, args: args }), redirect: 'follow' })
@@ -69,88 +85,111 @@ function run(fn, args, ok, ng) {
     .then(function(j){ if (j && j.ok) { ok && ok(j.result); } else { ng(j && j.error); } })
     .catch(function(e){ ng(e); });
 }
-function showError(e) {
+function showError() {
   view.innerHTML = '<h1>うまくいきませんでした</h1><p>電波のよいところで、もう一度おしてください。</p>' +
-    '<button class="btn main" onclick="location.reload()">もう一度ためす</button>' +
-    '<p class="sub">何度やってもだめなときは、担当者にご連絡ください。</p>';
+    '<button class="btn main" onclick="location.reload()">もう一度ためす</button>';
 }
+function loading(msg) { view.innerHTML = '<div class="spin"></div><p class="center sub">' + (msg || '読み込んでいます…') + '</p>'; }
+function setUrl(params) { history.replaceState(null, '', location.pathname + (params ? '?' + params : '')); }
+
+// ===== 担当者の一覧 =====
+function showStaffList() {
+  document.getElementById('bar').classList.add('hide');
+  loading('応募者の一覧を読み込んでいます…');
+  run('staffList', [STAFF], function(r) {
+    if (!r || !r.ok) { view.innerHTML = '<h1>このリンクでは開けません</h1><p>担当者用のリンクを、もう一度開いてください。</p>'; return; }
+    LIST = r;
+    renderList('');
+  });
+}
+function renderList(q) {
+  var items = LIST.items.slice();
+  var norm = function(s){ return String(s || '').replace(/[\s　]/g, ''); };
+  if (q) items = items.filter(function(x){ return norm(x.name + x.kana + x.no).indexOf(norm(q)) >= 0; });
+  var score = function(x){ return (x.token ? 2 : 0) + (/採用/.test(x.hire) ? 1 : 0); };
+  items.sort(function(a, b){ return score(b) - score(a); });
+  var top = items.filter(function(x){ return score(x) > 0; });
+  var rest = items.filter(function(x){ return score(x) === 0; });
+  var html = '<h1>応募者を選んでください</h1><p class="sub">' + esc(LIST.staff) + 'さん　面談で受け取った書類を撮ってアップロードします。</p>' +
+    '<input class="search" id="q" placeholder="名前・No.でさがす" value="' + esc(q) + '" oninput="renderList(this.value)">';
+  var card = function(x, i) {
+    var tags = (/採用/.test(x.hire) ? '<span class="tag hire">採用</span>' : '') + (x.token ? '<span class="tag doing">書類 ' + x.done + '枚</span>' : '');
+    return '<button class="person" onclick="openPerson(' + i + ')"><span class="nm">' + esc(x.name) + '</span>' + tags +
+      '<div class="meta">' + esc(x.label) + ' No.' + esc(x.no) + '　' + esc(x.tab.replace(/\s*面接シート/, '')) + (x.age ? '　' + esc(x.age) + '歳' : '') + (x.tel4 ? '　電話 …' + esc(x.tel4) : '') + (x.state ? '　' + esc(x.state) : '') + '</div></button>';
+  };
+  window._shown = top.concat(rest);
+  if (top.length) { html += '<h2>採用・書類を撮りかけの人</h2>'; top.forEach(function(x, i){ html += card(x, i); }); }
+  if (q || !top.length) { html += '<h2>' + (q ? 'さがした結果' : 'ほかの応募者') + '</h2>'; rest.slice(0, 40).forEach(function(x, i){ html += card(x, top.length + i); }); if (!rest.length) html += '<p class="sub">見つかりません。</p>'; }
+  else html += '<p class="sub">ほかの応募者は、上の「さがす」に名前かNo.を入れてください。</p>';
+  view.innerHTML = html;
+  var el = document.getElementById('q'); if (el && q) { el.focus(); el.setSelectionRange(q.length, q.length); }
+}
+function openPerson(i) {
+  var x = window._shown[i];
+  if (x.token) { TOKEN = x.token; setUrl('t=' + TOKEN); startPerson(); return; }
+  loading('準備しています…');
+  run('staffOpen', [STAFF, x.sheet, x.tab, x.no], function(r) {
+    if (!r || !r.ok) { showError(); return; }
+    TOKEN = r.token; setUrl('t=' + TOKEN); startPerson();
+  });
+}
+function backToList() { TOKEN = ''; S = null; steps = []; setUrl(''); showStaffList(); }
+
+// ===== 1人分の書類 =====
 function setBar() {
   var bar = document.getElementById('bar');
-  if (!steps.length) { bar.classList.add('hide'); return; }
   bar.classList.remove('hide');
+  document.getElementById('whoName').textContent = S ? S.name + 'さん' + (S.no ? '（' + S.no + '）' : '') : '';
+  document.getElementById('toList').classList.toggle('hide', !STAFF);
+  if (!steps.length) { document.getElementById('progi').style.width = '0'; document.getElementById('count').textContent = ''; return; }
   var n = steps.filter(function(d){ return S.done.indexOf(d.key) >= 0 || S.later.indexOf(d.key) >= 0; }).length;
   document.getElementById('progi').style.width = Math.round(n / steps.length * 100) + '%';
   document.getElementById('count').textContent = n + ' / ' + steps.length + ' おわり';
 }
 function needSteps() { return S.docs.filter(function(d){ return !d.car || S.car === '持込'; }); }
 function firstTodo() {
-  for (var i = 0; i < steps.length; i++) {
-    var k = steps[i].key;
-    if (S.done.indexOf(k) < 0 && S.later.indexOf(k) < 0) return i;
-  }
+  for (var i = 0; i < steps.length; i++) { var k = steps[i].key; if (S.done.indexOf(k) < 0 && S.later.indexOf(k) < 0) return i; }
   return -1;
 }
-
 function icon(kind) {
   if (kind === 'card') return '<svg viewBox="0 0 200 130"><rect x="4" y="4" width="192" height="122" rx="12" fill="#fff" stroke="#1a7f37" stroke-width="5"/><rect x="18" y="26" width="46" height="60" rx="4" fill="#cfe5d4"/><rect x="78" y="28" width="100" height="10" rx="5" fill="#cfe5d4"/><rect x="78" y="50" width="86" height="10" rx="5" fill="#cfe5d4"/><rect x="78" y="72" width="94" height="10" rx="5" fill="#cfe5d4"/><rect x="18" y="100" width="160" height="10" rx="5" fill="#cfe5d4"/></svg>';
   return '<svg viewBox="0 0 150 200"><rect x="4" y="4" width="142" height="192" rx="8" fill="#fff" stroke="#1a7f37" stroke-width="5"/><rect x="40" y="22" width="70" height="12" rx="6" fill="#cfe5d4"/><g fill="#e3ece5"><rect x="20" y="52" width="110" height="9" rx="4"/><rect x="20" y="72" width="110" height="9" rx="4"/><rect x="20" y="92" width="96" height="9" rx="4"/><rect x="20" y="112" width="110" height="9" rx="4"/><rect x="20" y="132" width="80" height="9" rx="4"/></g><circle cx="112" cy="166" r="14" fill="none" stroke="#e08a8a" stroke-width="4"/></svg>';
 }
 
-// ===== 画面 =====
-function start() {
-  if (!TOKEN) { view.innerHTML = '<h1>リンクが正しくありません</h1><p>SMSで届いたリンクを、もう一度おしてください。</p>'; return; }
+function startPerson() {
+  loading();
   run('getState', [TOKEN], function(s) {
-    if (!s || !s.ok) { view.innerHTML = '<h1>リンクが正しくありません</h1><p>SMSで届いたリンクを、もう一度おしてください。</p><p class="sub">わからないときは、担当者にご連絡ください。</p>'; return; }
+    if (!s || !s.ok) { view.innerHTML = '<h1>この応募者が見つかりません</h1>' + (STAFF ? '<button class="btn main" onclick="backToList()">応募者の一覧へ</button>' : '<p>担当者用のリンクから開いてください。</p>'); return; }
     S = s;
-    var started = S.done.length || S.later.length || S.car;
-    if (started) { steps = needSteps(); setBar(); showList(true); } else { welcome(); }
+    if (S.car) { steps = needSteps(); setBar(); showList(true); } else { setBar(); askCar(); }
   });
 }
 
-function welcome() {
-  view.innerHTML =
-    '<h1>' + esc(S.name) + ' さん<br>こんにちは</h1>' +
-    '<div class="card"><p>お仕事を始めるために、書類の<b>写真</b>を送ってください。</p>' +
-    '<p>このページの<b>みどりのボタン</b>を、順番におすだけです。</p>' +
-    '<p class="sub">書類を手元に用意しておくと、10分ほどで終わります。<br>とちゅうでやめても、あとで同じリンクから続きができます。</p></div>' +
-    '<button class="btn main" onclick="askCar()">はじめる</button>';
-}
-
 function askCar() {
-  if (S.car) { steps = needSteps(); setBar(); goNext(); return; }
   view.innerHTML =
-    '<h1>お仕事で使う車について<br>教えてください</h1>' +
-    '<button class="btn main" onclick="chooseCar(\'持込\')">自分の車を使う</button>' +
-    '<button class="btn main" onclick="chooseCar(\'リース\')">会社の車を借りる（リース）</button>' +
-    '<p class="sub">わからないときは「会社の車を借りる」をおしてください。</p>';
+    '<h1>' + esc(S.name) + 'さんの書類</h1>' +
+    '<div class="card"><p>面談で受け取った書類を、1枚ずつ撮ってアップロードします。撮るたびに、確認することが出ます。</p></div>' +
+    '<h2>この方がお仕事で使う車は？</h2>' +
+    '<button class="btn main" onclick="chooseCar(\'持込\')">自分の車（持込）</button>' +
+    '<button class="btn main" onclick="chooseCar(\'リース\')">会社の車を借りる（リース）</button>';
 }
-function chooseCar(c) {
-  S.car = c;
-  run('setCar', [TOKEN, c], function(){});
-  steps = needSteps(); setBar(); goNext();
-}
+function chooseCar(c) { S.car = c; run('setCar', [TOKEN, c], function(){}); steps = needSteps(); setBar(); goNext(); }
 
-function goNext() {
-  var i = firstTodo();
-  if (i < 0) { showFinish(); return; }
-  cur = i; page = 1; showDoc();
-}
+function goNext() { var i = firstTodo(); if (i < 0) { showFinish(); return; } cur = i; page = 1; showDoc(); }
 
 function showDoc() {
   var d = steps[cur];
   setBar();
-  var laterBtn = d.later ? '<button class="btn sec" onclick="askLater()">まだ受けていない（あとで送る）</button>' : '';
+  var chk = (d.check && d.check.length) ? '<div class="checks"><b>確認すること</b><ul>' + d.check.map(function(c){ return '<li>' + esc(c) + '</li>'; }).join('') + '</ul></div>' : '';
+  var laterBtn = d.later ? '<button class="btn sec" onclick="askLater()">まだ受けていない（あとで撮る）</button>' : '';
   view.innerHTML =
     '<h1>' + esc(d.name) + (page > 1 ? '<br><span class="sub">（' + page + '枚目）</span>' : '') + '</h1>' +
-    '<div class="pic">' + icon(d.icon) + '</div>' +
-    '<p>' + esc(d.hint) + '</p>' +
-    '<p class="sub">明るいところで、書類の<b>四すみ</b>が入るように撮ってください。</p>' +
-    '<button class="btn main" onclick="openCam()">カメラで撮る</button>' +
-    laterBtn +
+    '<div class="pic">' + icon(d.icon) + '</div>' + chk +
+    '<p class="sub">明るいところで、書類の四すみが入るように撮ってください。</p>' +
+    '<button class="btn main" onclick="openCam()">カメラで撮る</button>' + laterBtn +
     '<button class="btn ghost" onclick="openPick()">撮ってある写真からえらぶ</button>' +
-    '<button class="btn ghost" onclick="showList(false)">送るものの一覧を見る</button>';
+    '<button class="btn ghost" onclick="showList(false)">書類の一覧を見る</button>';
 }
-
 function openCam() { var f = document.getElementById('cam'); f.value = ''; f.click(); }
 function openPick() { var f = document.getElementById('pick'); f.value = ''; f.click(); }
 document.getElementById('cam').addEventListener('change', onFile);
@@ -159,111 +198,81 @@ document.getElementById('pick').addEventListener('change', onFile);
 function onFile(ev) {
   var file = ev.target.files && ev.target.files[0];
   if (!file) return;
-  view.innerHTML = '<div class="spin"></div><p class="center">写真を読みこんでいます…</p>';
-  var url = URL.createObjectURL(file);
-  var img = new Image();
+  loading('写真を読みこんでいます…');
+  var url = URL.createObjectURL(file), img = new Image();
   img.onload = function() {
-    var max = 1800, w = img.naturalWidth, h = img.naturalHeight;
-    var r = Math.min(1, max / Math.max(w, h));
+    var max = 1800, w = img.naturalWidth, h = img.naturalHeight, r = Math.min(1, max / Math.max(w, h));
     var c = document.createElement('canvas'); c.width = Math.round(w * r); c.height = Math.round(h * r);
-    var x = c.getContext('2d'); x.drawImage(img, 0, 0, c.width, c.height);
-    var q = check(c);
-    var dataUrl = c.toDataURL('image/jpeg', 0.85);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    var q = check(c), dataUrl = c.toDataURL('image/jpeg', 0.85);
     shot = { data: dataUrl.split(',')[1], mime: 'image/jpeg', url: dataUrl, q: q };
-    URL.revokeObjectURL(url);
-    showShot();
+    URL.revokeObjectURL(url); showShot();
   };
   img.onerror = function() { view.innerHTML = '<h1>写真を読みこめませんでした</h1><button class="btn main" onclick="showDoc()">もう一度撮る</button>'; };
   img.src = url;
 }
-
-// 暗い・ぼやけている をかんたんに調べる
 function check(c) {
-  var s = document.createElement('canvas'); var w = 200, h = Math.round(200 * c.height / c.width);
+  var s = document.createElement('canvas'), w = 200, h = Math.round(200 * c.height / c.width);
   s.width = w; s.height = h; var x = s.getContext('2d'); x.drawImage(c, 0, 0, w, h);
   var d = x.getImageData(0, 0, w, h).data, g = new Float32Array(w * h), sum = 0;
   for (var i = 0, j = 0; i < d.length; i += 4, j++) { g[j] = d[i] * .299 + d[i+1] * .587 + d[i+2] * .114; sum += g[j]; }
-  var mean = sum / (w * h), lap = 0, n = 0, ls = 0;
-  for (var yy = 1; yy < h - 1; yy++) for (var xx = 1; xx < w - 1; xx++) {
-    var k = yy * w + xx, v = 4 * g[k] - g[k-1] - g[k+1] - g[k-w] - g[k+w]; ls += v; lap += v * v; n++;
-  }
-  var varLap = lap / n - Math.pow(ls / n, 2);
-  return { dark: mean < 70, blur: varLap < 60 };
+  var lap = 0, n = 0, ls = 0;
+  for (var yy = 1; yy < h - 1; yy++) for (var xx = 1; xx < w - 1; xx++) { var k = yy * w + xx, v = 4 * g[k] - g[k-1] - g[k+1] - g[k-w] - g[k+w]; ls += v; lap += v * v; n++; }
+  return { dark: sum / (w * h) < 70, blur: (lap / n - Math.pow(ls / n, 2)) < 60 };
 }
-
 function showShot() {
   var d = steps[cur], msg = '';
   if (shot.q.dark) msg = '<p class="warn">写真が暗いようです。明るいところで撮り直すと、きれいに写ります。</p>';
-  else if (shot.q.blur) msg = '<p class="warn">写真がぼやけているようです。文字が読めるか、確かめてください。</p>';
-  view.innerHTML =
-    '<h1>この写真でよいですか？</h1>' +
-    '<div class="pic"><img src="' + shot.url + '" alt=""></div>' + msg +
-    '<p class="sub">' + esc(d.name) + (page > 1 ? '（' + page + '枚目）' : '') + '：文字が読めればだいじょうぶです。</p>' +
-    '<button class="btn main" onclick="send()">これで送る</button>' +
-    '<button class="btn sec" onclick="showDoc()">撮り直す</button>';
+  else if (shot.q.blur) msg = '<p class="warn">写真がぼやけているようです。文字が読めるか確かめてください。</p>';
+  var chk = (d.check && d.check.length) ? '<div class="checks"><b>確認すること</b><ul>' + d.check.map(function(c){ return '<li>' + esc(c) + '</li>'; }).join('') + '</ul></div>' : '';
+  view.innerHTML = '<h1>この写真でよいですか？</h1><div class="pic"><img src="' + shot.url + '" alt=""></div>' + msg + chk +
+    '<button class="btn main" onclick="send()">これでアップロード</button><button class="btn sec" onclick="showDoc()">撮り直す</button>';
 }
-
 function send(tries) {
   tries = tries || 0;
   var d = steps[cur];
-  view.innerHTML = '<div class="spin"></div><p class="center">送っています…<br><span class="sub">そのままお待ちください</span></p>';
+  loading('アップロードしています…');
   if (!shot.sendId) shot.sendId = TOKEN + '_' + d.key + '_' + page + '_' + Date.now();
   run('uploadPhoto', [{ token: TOKEN, key: d.key, page: page, data: shot.data, mime: shot.mime, sendId: shot.sendId }], function() {
     if (S.done.indexOf(d.key) < 0) S.done.push(d.key);
     var li = S.later.indexOf(d.key); if (li >= 0) S.later.splice(li, 1);
     setBar();
-    view.innerHTML =
-      '<div class="big-check">✓</div><h1 class="center">送りました</h1>' +
-      '<p class="center">' + esc(d.name) + (page > 1 ? '（' + page + '枚目）' : '') + '</p>' +
-      '<div class="card"><p>この書類は、ほかにも紙やページがありますか？</p>' +
-      '<button class="btn sec" onclick="page++; showDoc()">ある（もう1枚撮る）</button></div>' +
+    view.innerHTML = '<div class="big-check">✓</div><h1 class="center">アップロードしました</h1><p class="center">' + esc(d.name) + (page > 1 ? '（' + page + '枚目）' : '') + '</p>' +
+      '<div class="card"><p>この書類は、ほかにも紙やページがありますか？</p><button class="btn sec" onclick="page++; showDoc()">ある（もう1枚撮る）</button></div>' +
       '<button class="btn main" onclick="goNext()">ない（つぎへ進む）</button>';
-  }, function(e) {
+  }, function() {
     if (tries < 2) { setTimeout(function(){ send(tries + 1); }, 1500); return; }
-    view.innerHTML = '<h1>送れませんでした</h1><p>電波のよいところで、もう一度おしてください。</p>' +
-      '<button class="btn main" onclick="send()">もう一度送る</button><button class="btn sec" onclick="showDoc()">撮り直す</button>';
+    view.innerHTML = '<h1>アップロードできませんでした</h1><p>電波のよいところで、もう一度おしてください。</p><button class="btn main" onclick="send()">もう一度アップロード</button><button class="btn sec" onclick="showDoc()">撮り直す</button>';
   });
 }
-
 function askLater() {
-  var d = steps[cur];
-  view.innerHTML =
-    '<h1>あとで送る</h1>' +
-    '<div class="note"><p><b>健康診断・適性診断・安全管理者講習の3つがそろわないと、お仕事を始められません。</b></p></div>' +
-    '<p>受けたら、このページ（SMSのリンク）からいつでも送れます。</p>' +
-    '<button class="btn main" onclick="laterOk()">わかりました（つぎへ）</button>' +
-    '<button class="btn sec" onclick="showDoc()">もどる（いま撮る）</button>';
+  view.innerHTML = '<h1>あとで撮る</h1>' +
+    '<div class="note"><p><b>健康診断・適性診断・安全管理者講習の3つがそろわないと、お仕事を始められません。</b></p><p>このことを、応募者にお伝えください。</p></div>' +
+    '<p>受けたら、応募者の一覧からこの方を選んで、いつでも追加できます。</p>' +
+    '<button class="btn main" onclick="laterOk()">伝えた（つぎへ）</button><button class="btn sec" onclick="showDoc()">もどる（いま撮る）</button>';
 }
-function laterOk() {
-  var d = steps[cur];
-  if (S.later.indexOf(d.key) < 0) S.later.push(d.key);
-  run('markLater', [TOKEN, d.key], function(){});
-  goNext();
-}
+function laterOk() { var d = steps[cur]; if (S.later.indexOf(d.key) < 0) S.later.push(d.key); run('markLater', [TOKEN, d.key], function(){}); goNext(); }
 
 function showList(resume) {
   setBar();
-  var html = '<h1>' + (resume ? esc(S.name) + ' さん<br>つづきから始めます' : '送るものの一覧') + '</h1><ul class="list">';
-  steps.forEach(function(d, i) {
-    var st = S.done.indexOf(d.key) >= 0 ? '<b class="mark-ok">✓ 送りました</b>' :
-             S.later.indexOf(d.key) >= 0 ? '<b class="mark-later">あとで送る</b>' : '<b class="mark-no">まだ</b>';
+  var html = '<h1>' + esc(S.name) + 'さんの書類</h1><ul class="list">';
+  steps.forEach(function(d) {
+    var st = S.done.indexOf(d.key) >= 0 ? '<b class="mark-ok">✓ アップロード済み</b>' : S.later.indexOf(d.key) >= 0 ? '<b class="mark-later">あとで</b>' : '<b class="mark-no">まだ</b>';
     html += '<li><span>' + esc(d.name) + '</span>' + st + '</li>';
   });
   html += '</ul>';
   var todo = firstTodo();
-  if (todo >= 0) html += '<button class="btn main" onclick="goNext()">つづきを始める</button>';
+  if (todo >= 0) html += '<button class="btn main" onclick="goNext()">' + (resume && (S.done.length || S.later.length) ? 'つづきを撮る' : '撮りはじめる') + '</button>';
   var laterIdx = steps.map(function(d, i){ return S.later.indexOf(d.key) >= 0 ? i : -1; }).filter(function(i){ return i >= 0; });
-  if (laterIdx.length) html += '<button class="btn sec" onclick="sendLater(' + laterIdx[0] + ')">「あとで送る」にした書類を送る</button>';
+  if (laterIdx.length) html += '<button class="btn sec" onclick="cur=' + laterIdx[0] + ';page=1;showDoc()">「あとで」にした書類を撮る</button>';
   if (todo < 0) html += '<button class="btn main" onclick="showFinish()">さいごの画面へ</button>';
-  html += '<button class="btn ghost" onclick="pickRedo()">送った書類を撮り直す</button>';
+  html += '<button class="btn ghost" onclick="pickRedo()">撮り直す・追加する書類をえらぶ</button>';
+  html += '<button class="btn ghost" onclick="askCar()">車（持込・リース）を変える</button>';
   view.innerHTML = html;
 }
-function sendLater(i) { cur = i; page = 1; showDoc(); }
 function pickRedo() {
-  var html = '<h1>どの書類を撮り直しますか？</h1>';
-  steps.forEach(function(d, i) {
-    if (S.done.indexOf(d.key) >= 0) html += '<button class="btn sec" onclick="cur=' + i + ';page=1;showDoc()">' + esc(d.name) + '</button>';
-  });
+  var html = '<h1>どの書類を撮りますか？</h1>';
+  steps.forEach(function(d, i) { html += '<button class="btn sec" onclick="cur=' + i + ';page=1;showDoc()">' + esc(d.name) + (S.done.indexOf(d.key) >= 0 ? '（撮り直す・追加）' : '') + '</button>'; });
   html += '<button class="btn ghost" onclick="showList(false)">もどる</button>';
   view.innerHTML = html;
 }
@@ -274,24 +283,49 @@ function showFinish() {
   var missing = steps.filter(function(d){ return S.done.indexOf(d.key) < 0; });
   var three = missing.filter(function(d){ return d.later; });
   var html = '';
-  if (!missing.length) {
-    html += '<div class="big-check">✓</div><h1 class="center">書類はぜんぶ届きました</h1><p class="center">ありがとうございました。</p>';
-  } else {
-    html += '<h1>ありがとうございました</h1><div class="card"><p><b>まだ届いていない書類</b></p><ul class="list">';
-    missing.forEach(function(d){ html += '<li><span>' + esc(d.name) + '</span>' + (S.later.indexOf(d.key) >= 0 ? '<b class="mark-later">あとで送る</b>' : '<b class="mark-no">まだ</b>') + '</li>'; });
+  if (!missing.length) html += '<div class="big-check">✓</div><h1 class="center">書類はぜんぶアップロードしました</h1>';
+  else {
+    html += '<h1>アップロードはここまでです</h1><div class="card"><p><b>まだの書類</b></p><ul class="list">';
+    missing.forEach(function(d){ html += '<li><span>' + esc(d.name) + '</span>' + (S.later.indexOf(d.key) >= 0 ? '<b class="mark-later">あとで</b>' : '<b class="mark-no">まだ</b>') + '</li>'; });
     html += '</ul>';
-    if (firstTodo() >= 0) html += '<button class="btn main" onclick="goNext()">つづきを送る</button>';
-    if (three.length) html += '<p class="warn">健康診断・適性診断・安全管理者講習の3つがそろうまで、お仕事を始められません。</p>';
-    html += '<p>受けたら、このページ（SMSのリンク）から送ってください。</p></div>';
+    if (three.length) html += '<p class="warn">健康診断・適性診断・安全管理者講習の3つがそろうまで、お仕事を始められません。応募者にお伝えください。</p>';
+    if (firstTodo() >= 0) html += '<button class="btn sec" onclick="goNext()">まだの書類を撮る</button>';
+    html += '</div>';
   }
-  html += '<div class="card"><p><b>さいごに、こちらのフォームにお答えください。</b></p>' +
-    '<p class="sub">登録番号（インボイス）について聞いています。<b>番号がない方も、お答えください。</b></p>' +
-    '<a class="btn main" href="' + esc(S.formUrl) + '" target="_blank" rel="noopener">フォームに答える</a></div>' +
-    '<button class="btn ghost" onclick="showList(false)">送ったものを確かめる</button>';
+  html += '<h2>さいごに、応募者にお願いすること</h2>';
+  html += '<div class="card"><p><b>① 登録番号のフォームに答えてもらう</b></p><p class="sub">番号がない方も、全員に答えてもらいます。</p>' +
+    (S.formChoice ? '<p class="mark-ok"><b>✓ ' + esc(S.formChoice) + '</b></p>' : '') +
+    '<button class="btn main" onclick="showQr(\'form\')">QRコードを見せて、その場で答えてもらう</button>' +
+    '<button class="btn sec" onclick="askSms()">あとでSMSで送る</button></div>';
+  if (S.lineUrl) html += '<div class="card"><p><b>② LINE公式アカウントに登録してもらう</b></p><p class="sub">お仕事の連絡に使います。</p>' +
+    '<button class="btn main" onclick="showQr(\'line\')">QRコードを見せて、登録してもらう</button></div>';
+  html += STAFF ? '<button class="btn ghost" onclick="backToList()">応募者の一覧へもどる</button>' : '';
   view.innerHTML = html;
 }
+function showQr(kind) {
+  var url = kind === 'line' ? S.lineUrl : S.formUrl;
+  var title = kind === 'line' ? 'LINE公式アカウントの登録' : '登録番号のフォーム';
+  view.innerHTML = '<h1>' + title + '</h1><p>応募者のスマホのカメラで、このQRコードを読み取ってもらってください。</p><div id="qr"></div>' +
+    (kind === 'line' ? '<p class="sub">「追加」を押してもらえば登録できます。</p>' : '<p class="sub">番号がない方も、最後まで答えてもらってください。</p>') +
+    '<button class="btn main" onclick="qrDone(\'' + kind + '\')">' + (kind === 'line' ? '登録してもらった' : '答えてもらった') + '</button>' +
+    '<button class="btn ghost" onclick="showFinish()">もどる</button>';
+  try { new QRCode(document.getElementById('qr'), { text: url, width: 480, height: 480, correctLevel: QRCode.CorrectLevel.M }); }
+  catch (e) { document.getElementById('qr').innerHTML = '<a class="btn sec" href="' + esc(url) + '" target="_blank" rel="noopener">リンクを開く</a>'; }
+}
+function qrDone(kind) {
+  if (kind === 'form') { run('formChoice', [TOKEN, 'qr'], function(){}); S.formChoice = 'QRでその場で回答'; }
+  showFinish();
+}
+function askSms() {
+  view.innerHTML = '<h1>あとでSMSで送る</h1><p>登録番号のフォームのリンクを、あとで応募者にSMSでお送りします。</p>' +
+    '<button class="btn main" onclick="smsOk()">SMSで送ってもらう</button><button class="btn ghost" onclick="showFinish()">もどる</button>';
+}
+function smsOk() { run('formChoice', [TOKEN, 'sms'], function(){}); S.formChoice = 'SMSで送る（あとで送ります）'; showFinish(); }
 
-start();
+// ===== はじめ =====
+if (TOKEN) startPerson();
+else if (STAFF) showStaffList();
+else view.innerHTML = '<h1>このページは担当者用です</h1><p>担当者用のリンクから開いてください。</p>';
 </script>
 </body>
 </html>
