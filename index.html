@@ -122,6 +122,7 @@ function showStaffList(reload) {
     if (!r || !r.ok) { if (!shown) view.innerHTML = '<h1>このリンクでは開けません</h1><p>担当者用のリンクを、もう一度開いてください。</p>'; return; }
     try { localStorage.setItem(cacheKey(), JSON.stringify(r)); } catch (e) {}
     useList(r);
+    if (!shown) { renderHome(); return; }
     if (ON_HOME && document.getElementById('homeMark')) { var ae = document.activeElement; if (ae && ae.tagName === 'INPUT') { var m = document.getElementById('upd'); if (m) m.textContent = ''; } else renderHome(); }
   }, function(e) { if (!shown) showError(e); else { var m = document.getElementById('upd'); if (m) m.textContent = '（最新の読み込みに失敗。「読み込み直す」を押してください）'; } });
 }
