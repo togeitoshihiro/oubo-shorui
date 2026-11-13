@@ -140,7 +140,7 @@
 <input type="file" id="pick" accept="image/*">
 
 <script>
-var APP_VERSION = '2026-11-13-25';
+var APP_VERSION = '2026-11-13-26';
 var API = 'https://script.google.com/macros/s/AKfycbxXqXGMgSnxYJre2Lpq8D7lV5ksrwsQl8tC4yrOCl5EN2Z_IRVb45DH_fQrS73eaLnGUw/exec';
 var Q = new URLSearchParams(location.search);
 var TOKEN = (Q.get('t') || '').trim();
@@ -393,7 +393,7 @@ function showDetail(i) {
   html += '<h2>面談の内容</h2><div class="card"><p class="sub" style="margin-top:0">入れると自動で保存します。マイクを押すと声で入力できます。</p>';
   html += '<button class="voice" id="mic_all" onclick="listen(\'other\', this)"><span class="vi">' + MIC_SVG + '</span><span><b>まとめて話す</b><small id="mic_all_t">「希望エリアは〜、前職は〜」のように項目の名前を言うと、その項目に入ります</small></span></button>';
   FIELDS.forEach(function(f){ html += fieldHtml(x, f); });
-  html += '<p class="sub center" id="allSaved"></p></div>';
+  html += '<button class="btn main" onclick="saveAll()">入力した内容をシートに保存</button><p class="sub center" id="allSaved"></p></div>';
   html += '<h2>結果</h2>';
   if (!isRejected(x) && !/^採用/.test(x.hire)) {
     html += '<div class="row2"><button class="btn sec" onclick="noReach()">📵 電話つながらず</button><button class="btn sec" onclick="holdOn()">⏸ 保留（検討中）</button></div>';
