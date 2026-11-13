@@ -119,7 +119,23 @@ function dkey(s) { var m = String(s || '').match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/
 
 var ON_HOME = false;
 function cacheKey() { return 'staffList_' + STAFF; }
-function useList(r) { LIST = r; LIST.items.forEach(function(x, i){ x.i = i; }); }
+// テスト用の応募者（シートには書かない。赤倉くん・広瀬さんの一覧のいちばん上に出す）
+function testPerson() {
+  var d = new Date(), today = d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate();
+  return { test: true, no: '0', name: 'テスト　花子', kana: 'テスト　ハナコ', sex: '女性', asked: today, interview: '', state: '', media: 'テスト',
+    pref: '東京都', city: '豊島区', tanto: '赤倉', tel: '00000000000', hire: '', age: '30', first: '', pay: '', home: '', area: '', job: '', car: '',
+    exp: '', prev: '', other: '', sheet: 'test', label: 'テスト用', tab: '', row: 0, token: '', done: 0 };
+}
+function useList(r) {
+  LIST = r;
+  if ((LIST.staff === '赤倉' || LIST.staff === '広瀬') && !LIST.items.some(function(x){ return x.test; })) {
+    var keep = null; try { keep = JSON.parse(localStorage.getItem('testPerson') || 'null'); } catch (e) {}
+    LIST.items.unshift(keep || testPerson());
+  }
+  LIST.items.forEach(function(x, i){ x.i = i; });
+}
+function resetTest() { try { localStorage.removeItem('testPerson'); } catch (e) {} var t = testPerson(); var j = LIST.items.findIndex(function(y){ return y.test; }); t.i = j; LIST.items[j] = t; showDetail(j); }
+function saveTest(x) { try { localStorage.setItem('testPerson', JSON.stringify(x)); } catch (e) {} }
 function showStaffList(reload) {
   document.getElementById('bar').classList.add('hide');
   ON_HOME = true;
@@ -131,7 +147,7 @@ function showStaffList(reload) {
   if (!shown) loading('応募者の一覧を読み込んでいます…');
   run('staffList', [STAFF], function(r) {
     if (!r || !r.ok) { if (!shown) view.innerHTML = '<h1>このリンクでは開けません</h1><p>担当者用のリンクを、もう一度開いてください。</p>'; return; }
-    try { localStorage.setItem(cacheKey(), JSON.stringify(r)); } catch (e) {}
+    try { localStorage.setItem(cacheKey(), JSON.stringify({ ok: r.ok, staff: r.staff, options: r.options, at: r.at, items: r.items.filter(function(x){ return !x.test; }) })); } catch (e) {}
     useList(r);
     if (!shown) { renderHome(); return; }
     if (ON_HOME && document.getElementById('homeMark')) { var ae = document.activeElement; if (ae && ae.tagName === 'INPUT') { var m = document.getElementById('upd'); if (m) m.textContent = ''; } else renderHome(); }
@@ -139,7 +155,7 @@ function showStaffList(reload) {
 }
 function setMode(m) { MODE = m; try { localStorage.setItem('staffMode', m); } catch (e) {} renderHome(); }
 function personBtn(x, onclick) {
-  var tags = (/^採用/.test(x.hire) ? '<span class="tag hire">採用</span>' : '') + (x.token ? '<span class="tag doing">書類 ' + x.done + '枚</span>' : '') + (isRejected(x) ? '<span class="tag">不採用</span>' : '');
+  var tags = (/^採用/.test(x.hire) ? '<span class="tag hire">採用</span>' : '') + (x.token ? '<span class="tag doing">書類 ' + x.done + '枚</span>' : '') + (isRejected(x) ? '<span class="tag">不採用</span>' : '') + (x.test ? '<span class="tag doing">テスト用</span>' : '');
   var place = (x.pref || '') + (x.city || '');
   return '<button class="person" onclick="' + onclick + '(' + x.i + ')"><span class="nm">' + esc(x.name) + '</span>' + tags +
     '<div class="meta">' + (x.age ? esc(x.age) + '歳　' : '') + (place ? esc(place) + '　' : '') + (x.asked ? '応募 ' + esc(x.asked.replace(/^\d{4}\//, '')) + '　' : '') + (x.state ? esc(x.state) : '') + '</div>' +
@@ -149,7 +165,7 @@ function renderHome(updating) {
   ON_HOME = true;
   var items = LIST.items;
   var cand = items.filter(isCand), hired = items.filter(isHired), rej = items.filter(isRejected);
-  var sortNew = function(a, b){ return dkey(b.asked) - dkey(a.asked) || Number(b.no) - Number(a.no); };
+  var sortNew = function(a, b){ return (b.test ? 1 : 0) - (a.test ? 1 : 0) || dkey(b.asked) - dkey(a.asked) || Number(b.no) - Number(a.no); };
   var tabs = '<div style="display:flex;gap:8px;margin:6px 0 4px">' +
     '<button class="btn ' + (MODE === 'cand' ? 'main' : 'sec') + '" style="margin:0;font-size:18px;padding:14px 6px" onclick="setMode(\'cand\')">未対応<br><span style="font-size:15px">' + cand.filter(function(x){ return untouched(x) && daysAgo(x.asked) <= NEW_DAYS; }).length + '人</span></button>' +
     '<button class="btn ' + (MODE === 'hired' ? 'main' : 'sec') + '" style="margin:0;font-size:18px;padding:14px 6px" onclick="setMode(\'hired\')">採用した人<br><span style="font-size:15px">書類 ' + hired.length + '人</span></button></div>';
@@ -202,7 +218,7 @@ var FIELDS = [
   { k: 'prev', label: '前職（エリアなど）', type: 'text' },
   { k: 'other', label: 'その他', type: 'area' }
 ];
-function optionsFor(x, name) { var o = LIST.options && LIST.options[x.sheet]; return (o && o[name]) || []; }
+function optionsFor(x, name) { var sid = x.test ? '10eRlQ6wHGJa6oKQ7zAfcRnz9qFXBajJ6uSGnhehHNkc' : x.sheet; var o = LIST.options && LIST.options[sid]; return (o && o[name]) || []; }
 function isIOS() { return /iPhone|iPad|iPod/.test(navigator.userAgent); }
 function smsHref(x) {
   var tel = String(x.tel || '').replace(/\D/g, '');
@@ -234,7 +250,7 @@ function showDetail(i) {
   ON_HOME = false;
   var x = LIST.items[i]; CUR = x;
   var tel = String(x.tel || '').replace(/\D/g, '');
-  var html = '<h1>' + esc(x.name) + '</h1><p class="sub">' + esc(x.kana) + '　' + esc(x.label) + ' No.' + esc(x.no) + '</p>';
+  var html = (x.test ? '<div class="note"><b>テスト用の応募者です。</b>入力・採用・不採用を押しても、求人シートには書きません。電話番号は「00000000000」なので、電話をかけてもつながりません。SMSは送信を押さなければ送られません。<br><button class="btn ghost" onclick="resetTest()">テストの入力を消す</button></div>' : '') + '<h1>' + esc(x.name) + '</h1><p class="sub">' + esc(x.kana) + '　' + esc(x.label) + ' No.' + esc(x.no) + '</p>';
   html += '<ul class="list">' + row('年齢', x.age ? x.age + '歳' : '') + row('性別', x.sex) + row('住所', (x.pref || '') + (x.city || '')) +
     row('電話', x.tel) + row('応募媒体', x.media) + row('応募日', x.asked) + row('面接担当', x.tanto) + '</ul>';
   if (tel) html += '<div style="display:flex;gap:8px"><a class="btn main" style="margin:6px 0" href="tel:' + tel + '">📞 電話</a><a class="btn sec" style="margin:6px 0" href="' + smsHref(x) + '">💬 SMS</a></div>';
@@ -261,10 +277,11 @@ function saveField(k) {
   var v = k === 'interview' ? toSheetDate(el.value) : el.value.trim();
   var mark = document.getElementById('s_' + k);
   if (mark) { mark.textContent = '保存中…'; mark.className = 'saved'; }
+  if (x.test) { x[k] = v; saveTest(x); setTimeout(function(){ if (mark) { mark.textContent = '✓ 保存しました（テストなのでシートには書きません）'; mark.className = 'saved ok'; } }, 300); return; }
   var f = {}; f[k] = v;
   run('setFields', [STAFF, x.sheet, x.tab, x.row, x.no, x.name, f], function(r) {
     if (r && r.ok && r.done && r.done.indexOf(k) >= 0) {
-      x[k] = v; try { localStorage.setItem(cacheKey(), JSON.stringify(LIST)); } catch (e) {}
+      x[k] = v; try { localStorage.setItem(cacheKey(), JSON.stringify({ ok: true, staff: LIST.staff, options: LIST.options, at: LIST.at, items: LIST.items.filter(function(y){ return !y.test; }) })); } catch (e) {}
       if (mark) { mark.textContent = '✓ 保存しました'; mark.className = 'saved ok'; }
     } else if (mark) { mark.textContent = '保存できませんでした'; mark.className = 'saved ng'; }
   }, function() { if (mark) { mark.textContent = '保存できませんでした（電波を確認）'; mark.className = 'saved ng'; } });
@@ -300,11 +317,17 @@ function askReject(i) {
 }
 function decide(i, value) {
   var x = LIST.items[i];
+  if (x.test) {
+    x.hire = value; saveTest(x);
+    if (value === '採用') view.innerHTML = '<div class="big-check">✓</div><h1 class="center">' + esc(x.name) + 'さんを<br>採用にしました</h1><p class="center sub">（テストなので、シートには書きません）</p><button class="btn main" onclick="openPerson(' + i + ')">このまま書類を撮る</button><button class="btn sec" onclick="renderHome()">一覧にもどる</button>';
+    else renderHome();
+    return;
+  }
   loading('記録しています…');
   run('setHire', [STAFF, x.sheet, x.tab, x.row, x.no, x.name, value], function(r) {
     if (!r || !r.ok) { view.innerHTML = '<h1>記録できませんでした</h1><p>もう一度ためしてください。</p><button class="btn main" onclick="showDetail(' + i + ')">もどる</button>'; return; }
     x.hire = value;
-    try { localStorage.setItem(cacheKey(), JSON.stringify(LIST)); } catch (e) {}
+    try { localStorage.setItem(cacheKey(), JSON.stringify({ ok: true, staff: LIST.staff, options: LIST.options, at: LIST.at, items: LIST.items.filter(function(y){ return !y.test; }) })); } catch (e) {}
     if (value === '採用') {
       view.innerHTML = '<div class="big-check">✓</div><h1 class="center">' + esc(x.name) + 'さんを<br>採用にしました</h1><p class="center sub">「採用した人」の一覧に入りました。</p>' +
         '<button class="btn main" onclick="openPerson(' + i + ')">このまま書類を撮る</button><button class="btn sec" onclick="renderHome()">採用候補の一覧にもどる</button>';
@@ -316,6 +339,7 @@ function decide(i, value) {
 function openPerson(i) {
   ON_HOME = false;
   var x = LIST.items[i];
+  if (x.test) x.token = '1d4ddaccaa';
   if (x.token) { TOKEN = x.token; setUrl('t=' + TOKEN); startPerson(); return; }
   loading('準備しています…');
   run('staffOpen', [STAFF, x.sheet, x.tab, x.row, x.no], function(r) {
