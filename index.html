@@ -106,16 +106,24 @@ function isCand(x) { return !isHired(x) && !isRejected(x) && !OUT.test(x.state) 
 function talked(x) { return !!x.interview || /検討中|返事待ち|案件探し/.test(x.state); }
 function dkey(s) { var m = String(s || '').match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/); return m ? Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]) : 0; }
 
+var ON_HOME = false;
+function cacheKey() { return 'staffList_' + STAFF; }
+function useList(r) { LIST = r; LIST.items.forEach(function(x, i){ x.i = i; }); }
 function showStaffList(reload) {
   document.getElementById('bar').classList.add('hide');
+  ON_HOME = true;
   if (LIST && !reload) { renderHome(); return; }
-  loading('応募者の一覧を読み込んでいます…');
+  // 前に読んだ一覧があれば、まずそれを出して、新しい一覧は裏で読む
+  var shown = false;
+  if (!LIST) { try { var c = JSON.parse(localStorage.getItem(cacheKey()) || 'null'); if (c && c.items) { useList(c); renderHome(true); shown = true; } } catch (e) {} }
+  else { renderHome(true); shown = true; }
+  if (!shown) loading('応募者の一覧を読み込んでいます…');
   run('staffList', [STAFF], function(r) {
-    if (!r || !r.ok) { view.innerHTML = '<h1>このリンクでは開けません</h1><p>担当者用のリンクを、もう一度開いてください。</p>'; return; }
-    LIST = r;
-    LIST.items.forEach(function(x, i){ x.i = i; });
-    renderHome();
-  });
+    if (!r || !r.ok) { if (!shown) view.innerHTML = '<h1>このリンクでは開けません</h1><p>担当者用のリンクを、もう一度開いてください。</p>'; return; }
+    try { localStorage.setItem(cacheKey(), JSON.stringify(r)); } catch (e) {}
+    useList(r);
+    if (ON_HOME && document.getElementById('homeMark')) { var ae = document.activeElement; if (ae && ae.tagName === 'INPUT') { var m = document.getElementById('upd'); if (m) m.textContent = ''; } else renderHome(); }
+  }, function(e) { if (!shown) showError(e); else { var m = document.getElementById('upd'); if (m) m.textContent = '（最新の読み込みに失敗。「読み込み直す」を押してください）'; } });
 }
 function setMode(m) { MODE = m; try { localStorage.setItem('staffMode', m); } catch (e) {} renderHome(); }
 function personBtn(x, onclick) {
@@ -125,14 +133,15 @@ function personBtn(x, onclick) {
     '<div class="meta">' + (x.age ? esc(x.age) + '歳　' : '') + (place ? esc(place) + '　' : '') + (x.asked ? '応募 ' + esc(x.asked.replace(/^\d{4}\//, '')) + '　' : '') + (x.state ? esc(x.state) : '') + '</div>' +
     '<div class="meta">' + esc(x.label) + ' No.' + esc(x.no) + '</div></button>';
 }
-function renderHome() {
+function renderHome(updating) {
+  ON_HOME = true;
   var items = LIST.items;
   var cand = items.filter(isCand), hired = items.filter(isHired), rej = items.filter(isRejected);
   var sortNew = function(a, b){ return dkey(b.asked) - dkey(a.asked) || Number(b.no) - Number(a.no); };
   var tabs = '<div style="display:flex;gap:8px;margin:6px 0 4px">' +
     '<button class="btn ' + (MODE === 'cand' ? 'main' : 'sec') + '" style="margin:0;font-size:18px;padding:14px 6px" onclick="setMode(\'cand\')">採用候補<br><span style="font-size:15px">' + cand.length + '人</span></button>' +
     '<button class="btn ' + (MODE === 'hired' ? 'main' : 'sec') + '" style="margin:0;font-size:18px;padding:14px 6px" onclick="setMode(\'hired\')">採用した人<br><span style="font-size:15px">書類 ' + hired.length + '人</span></button></div>';
-  var html = '<p class="sub" style="margin:4px 0">' + esc(LIST.staff) + 'さん</p>' + tabs;
+  var html = '<p class="sub" style="margin:4px 0" id="homeMark">' + esc(LIST.staff) + 'さん<span id="upd" style="font-size:14px">' + (updating ? '　最新の一覧を読み込み中…' : '') + '</span></p>' + tabs;
   if (MODE === 'hired') {
     html += '<h1>採用した人の書類</h1><p class="sub">選ぶと、面談で受け取った書類を撮ってアップロードできます。</p>';
     hired.sort(sortNew).forEach(function(x){ html += personBtn(x, 'openPerson'); });
@@ -166,6 +175,7 @@ function searchCand(q) {
 }
 function row(label, v) { return v ? '<li><span class="sub" style="font-size:16px;white-space:nowrap">' + label + '</span><span style="text-align:right">' + esc(v) + '</span></li>' : ''; }
 function showDetail(i) {
+  ON_HOME = false;
   var x = LIST.items[i];
   var tel = String(x.tel || '').replace(/\D/g, '');
   var html = '<h1>' + esc(x.name) + '</h1><p class="sub">' + esc(x.kana) + '　' + esc(x.label) + ' No.' + esc(x.no) + '</p>';
@@ -198,6 +208,7 @@ function decide(i, value) {
   run('setHire', [STAFF, x.sheet, x.tab, x.row, x.no, x.name, value], function(r) {
     if (!r || !r.ok) { view.innerHTML = '<h1>記録できませんでした</h1><p>もう一度ためしてください。</p><button class="btn main" onclick="showDetail(' + i + ')">もどる</button>'; return; }
     x.hire = value;
+    try { localStorage.setItem(cacheKey(), JSON.stringify(LIST)); } catch (e) {}
     if (value === '採用') {
       view.innerHTML = '<div class="big-check">✓</div><h1 class="center">' + esc(x.name) + 'さんを<br>採用にしました</h1><p class="center sub">「採用した人」の一覧に入りました。</p>' +
         '<button class="btn main" onclick="openPerson(' + i + ')">このまま書類を撮る</button><button class="btn sec" onclick="renderHome()">採用候補の一覧にもどる</button>';
@@ -207,6 +218,7 @@ function decide(i, value) {
   });
 }
 function openPerson(i) {
+  ON_HOME = false;
   var x = LIST.items[i];
   if (x.token) { TOKEN = x.token; setUrl('t=' + TOKEN); startPerson(); return; }
   loading('準備しています…');
