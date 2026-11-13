@@ -466,6 +466,7 @@ var SPLIT_KEYS = [
   { k: 'pay',   re: /(希望の?手取り|手取り|希望の?給料|給料|月収|収入)/ },
   { k: 'first', re: /(初回出勤|初出勤|出勤開始|勤務開始|開始日|いつから|スタート)/ },
   { k: 'home',  re: /(お住まい|住まい|住んで(い|る)|住所)/ },
+  { k: 'interview', re: /(面接日|面談日|面接は|面談は)/ },
   { k: 'state', re: /(連絡状態|状態)/ },
   { k: 'other', re: /(その他|そのほか|ほかに|他に|メモ|[、,。\s　]あと|^あと|あと[、,\s　]|それと|ちなみに)/ }
 ];
@@ -485,10 +486,21 @@ function splitSpeech(text, x) {
     if (!v) return;
     if (h.k === 'state') { var opts = optionsFor(x, '連絡状態'), hit = opts.filter(function(o){ return v.indexOf(o) >= 0; })[0]; if (hit) out.state = hit; else rest += ' ' + v; return; }
     if (h.k === 'other') { rest += ' ' + v; return; }
+    if (h.k === 'interview') { var dt = speechDate(v); if (dt) { out.interview = dt; var tail = v.replace(/^(今日|きょう|本日|明日|あした|明後日|あさって|昨日|きのう|\d{1,2}月\d{1,2}日|\d{1,2}\/\d{1,2})(です|で)?[、。\s　]*/, ''); if (tail) rest += ' ' + tail; } else rest += ' 面接日 ' + v; return; }
     out[h.k] = out[h.k] ? out[h.k] + '、' + v : v;
   });
-  rest = clean(rest);
+  // 「辞退」「検討中」などの連絡状態の言葉がそのまま話されたら、連絡状態にも入れる（「自体」は「辞退」の聞き間違いとして扱う）
+  var all = text.replace(/自体/g, '辞退');
+  if (!out.state) { var so = optionsFor(x, '連絡状態').filter(function(o){ return o !== 'SMS送信済み' && all.indexOf(o) >= 0; }); if (so.length) out.state = so[0]; }
+  rest = clean(rest.replace(/(^|[\s　、。])自体(?=$|[\s　、。])/g, '$1辞退'));
   return { fields: out, rest: rest };
+}
+function speechDate(v) {
+  var d = new Date(), m;
+  if (/^(今日|きょう|本日)/.test(v)) {} else if (/^(明日|あした)/.test(v)) d.setDate(d.getDate() + 1); else if (/^(明後日|あさって)/.test(v)) d.setDate(d.getDate() + 2); else if (/^(昨日|きのう)/.test(v)) d.setDate(d.getDate() - 1);
+  else if ((m = v.match(/^(\d{1,2})月(\d{1,2})日/)) || (m = v.match(/^(\d{1,2})\/(\d{1,2})/))) { d = new Date(d.getFullYear(), Number(m[1]) - 1, Number(m[2])); }
+  else return '';
+  return d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate();
 }
 var UNDO = null;
 function applySplit(x, text, beforeOther) {
@@ -496,8 +508,8 @@ function applySplit(x, text, beforeOther) {
   Object.keys(r.fields).forEach(function(k) {
     var el = document.getElementById('f_' + k); if (!el) return;
     prev[k] = x[k] || '';
-    var v = (k === 'state' || !x[k]) ? r.fields[k] : x[k] + '、' + r.fields[k];
-    el.value = v; f[k] = v;
+    var v = (k === 'state' || k === 'interview' || !x[k]) ? r.fields[k] : x[k] + '、' + r.fields[k];
+    el.value = k === 'interview' ? toInputDate(v) : v; f[k] = v;
   });
   var oel = document.getElementById('f_other');
   prev.other = beforeOther;
