@@ -114,7 +114,9 @@ function daysAgo(s) { var m = String(s || '').match(/(\d{4})\D(\d{1,2})\D(\d{1,2
 function isCand(x) { return !isHired(x) && !isRejected(x) && !OUT.test(x.state) && daysAgo(x.asked) <= RECENT_DAYS; }
 function talked(x) { return !!x.interview || /検討中|返事待ち|案件探し/.test(x.state); }
 // まだ対応していない人：シートに入力されただけ（連絡状態が空かSMS送信済みで、面談の内容もまだ）
-function untouched(x) { return (!x.state || /^SMS送信済み$/.test(x.state)) && !x.interview && !x.area && !x.job && !x.exp && !x.prev && !x.other && !x.first; }
+function noReachOnly(v) { return !String(v || '').split(/\n|　/).filter(function(l){ return l.trim() && !/電話つながらず/.test(l); }).length; }
+function noReachCount(x) { return (String(x.other || '').match(/電話つながらず/g) || []).length; }
+function untouched(x) { return (!x.state || /^SMS送信済み$/.test(x.state)) && !x.interview && !x.area && !x.job && !x.exp && !x.prev && noReachOnly(x.other) && !x.first; }
 function dkey(s) { var m = String(s || '').match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/); return m ? Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]) : 0; }
 
 var ON_HOME = false;
@@ -155,7 +157,7 @@ function showStaffList(reload) {
 }
 function setMode(m) { MODE = m; try { localStorage.setItem('staffMode', m); } catch (e) {} renderHome(); }
 function personBtn(x, onclick) {
-  var tags = (/^採用/.test(x.hire) ? '<span class="tag hire">採用</span>' : '') + (x.token ? '<span class="tag doing">書類 ' + x.done + '枚</span>' : '') + (isRejected(x) ? '<span class="tag">不採用</span>' : '') + (x.test ? '<span class="tag doing">テスト用</span>' : '');
+  var tags = (/^採用/.test(x.hire) ? '<span class="tag hire">採用</span>' : '') + (x.token ? '<span class="tag doing">書類 ' + x.done + '枚</span>' : '') + (isRejected(x) ? '<span class="tag">不採用</span>' : '') + (x.test ? '<span class="tag doing">テスト用</span>' : '') + (noReachCount(x) ? '<span class="tag" style="background:var(--warnbg);color:var(--warn)">電話つながらず ' + noReachCount(x) + '回</span>' : '');
   var place = (x.pref || '') + (x.city || '');
   return '<button class="person" onclick="' + onclick + '(' + x.i + ')"><span class="nm">' + esc(x.name) + '</span>' + tags +
     '<div class="meta">' + (x.age ? esc(x.age) + '歳　' : '') + (place ? esc(place) + '　' : '') + (x.asked ? '応募 ' + esc(x.asked.replace(/^\d{4}\//, '')) + '　' : '') + (x.state ? esc(x.state) : '') + '</div>' +
@@ -222,7 +224,7 @@ function optionsFor(x, name) { var sid = x.test ? '10eRlQ6wHGJa6oKQ7zAfcRnz9qFXB
 function isIOS() { return /iPhone|iPad|iPod/.test(navigator.userAgent); }
 function smsHref(x) {
   var tel = String(x.tel || '').replace(/\D/g, '');
-  var body = x.name + '様\n東迎商事（軽貨物配送本舗）の' + (LIST.staff || '') + 'です。\nご応募ありがとうございました。お仕事のご説明のため、お電話できるお時間を教えていただけますでしょうか。';
+  var body = x.name + '様\n軽貨物配送本舗の' + (LIST.staff || '') + 'です。先ほどお電話いたしましたが、つながりませんでしたのでご連絡いたしました。ご都合のよいお時間に、こちらの番号へお電話いただけますでしょうか。';
   return 'sms:' + tel + (isIOS() ? '&' : '?') + 'body=' + encodeURIComponent(body);
 }
 function toSheetDate(v) { var m = String(v || '').match(/(\d{4})-(\d{2})-(\d{2})/); return m ? m[1] + '/' + Number(m[2]) + '/' + Number(m[3]) : v; }
@@ -257,7 +259,11 @@ function showDetail(i) {
   html += '<h2>面談の内容</h2><p class="sub">入れたら自動で保存します。🎤を押すと声で入力できます。</p>';
   html += '<button class="btn sec" onclick="listen(\'other\')">🎤 まとめて話す（「その他」に入ります）</button>';
   FIELDS.forEach(function(f){ html += fieldHtml(x, f); });
+  html += '<button class="btn main" onclick="saveAll()">💾 入力した内容をシートに保存</button><p class="sub center" id="allSaved"></p>';
   html += '<h2>結果</h2>';
+  if (!isRejected(x) && !/^採用/.test(x.hire)) {
+    html += '<div style="display:flex;gap:8px"><button class="btn sec" style="margin:6px 0;font-size:18px" onclick="noReach()">📵 電話つながらず</button><button class="btn sec" style="margin:6px 0;font-size:18px" onclick="holdOn()">⏸ 保留（検討中）</button></div>';
+  }
   if (isRejected(x)) {
     html += '<button class="btn sec" onclick="decide(' + i + ',\'\')">採用候補にもどす</button>';
   } else if (/^採用/.test(x.hire)) {
@@ -285,6 +291,46 @@ function saveField(k) {
       if (mark) { mark.textContent = '✓ 保存しました'; mark.className = 'saved ok'; }
     } else if (mark) { mark.textContent = '保存できませんでした'; mark.className = 'saved ng'; }
   }, function() { if (mark) { mark.textContent = '保存できませんでした（電波を確認）'; mark.className = 'saved ng'; } });
+}
+function collectFields(x) {
+  var f = {};
+  FIELDS.forEach(function(d) {
+    var el = document.getElementById('f_' + d.k); if (!el) return;
+    var v = d.k === 'interview' ? toSheetDate(el.value) : el.value.trim();
+    if (v !== (x[d.k] || '')) f[d.k] = v;
+  });
+  return f;
+}
+function writeFields(x, f, done) {
+  var keys = Object.keys(f);
+  var msg = document.getElementById('allSaved');
+  if (!keys.length) { if (msg) { msg.textContent = '変わったところはありません（保存済みです）'; } done && done(true); return; }
+  if (msg) msg.textContent = '保存しています…';
+  var finish = function(ok) {
+    if (ok) { keys.forEach(function(k){ x[k] = f[k]; var m = document.getElementById('s_' + k); if (m) { m.textContent = '✓ 保存しました'; m.className = 'saved ok'; } });
+      try { if (x.test) saveTest(x); else localStorage.setItem(cacheKey(), JSON.stringify({ ok: true, staff: LIST.staff, options: LIST.options, at: LIST.at, items: LIST.items.filter(function(y){ return !y.test; }) })); } catch (e) {} }
+    if (msg) { msg.textContent = ok ? '✓ シートに保存しました' + (x.test ? '（テストなので実際には書きません）' : '') : '保存できませんでした。電波を確かめて、もう一度おしてください。'; msg.style.color = ok ? 'var(--g)' : 'var(--warn)'; }
+    done && done(ok);
+  };
+  if (x.test) { setTimeout(function(){ finish(true); }, 300); return; }
+  run('setFields', [STAFF, x.sheet, x.tab, x.row, x.no, x.name, f], function(r) { finish(!!(r && r.ok && r.done && r.done.length === keys.length)); }, function() { finish(false); });
+}
+function saveAll() { writeFields(CUR, collectFields(CUR)); }
+function todayMD() { var d = new Date(); return (d.getMonth() + 1) + '/' + d.getDate(); }
+function noReach() {
+  var x = CUR, f = collectFields(x);
+  var el = document.getElementById('f_other');
+  var base = f.other !== undefined ? f.other : (x.other || '');
+  f.other = (base ? base + '\n' : '') + todayMD() + ' 電話つながらず（' + (LIST.staff || '') + '）';
+  if (el) el.value = f.other;
+  writeFields(x, f, function(ok) { if (ok) { view.innerHTML = '<div class="big-check">📵</div><h1 class="center">「電話つながらず」を記録しました</h1><p class="center sub">' + esc(x.name) + 'さんは、未対応の一覧に残ります。' + (x.test ? '（テストなのでシートには書きません）' : '') + '</p>' +
+    (String(x.tel || '').replace(/\D/g, '') ? '<a class="btn sec" href="' + smsHref(x) + '">💬 SMSを送る</a>' : '') + '<button class="btn main" onclick="renderHome()">一覧にもどる</button><button class="btn ghost" onclick="showDetail(' + x.i + ')">この人の画面にもどる</button>'; } });
+}
+function holdOn() {
+  var x = CUR, f = collectFields(x);
+  f.state = '検討中';
+  var el = document.getElementById('f_state'); if (el) el.value = '検討中';
+  writeFields(x, f, function(ok) { if (ok) { view.innerHTML = '<div class="big-check">⏸</div><h1 class="center">保留（検討中）にしました</h1><p class="center sub">' + esc(x.name) + 'さんは「対応中の人」に移ります。' + (x.test ? '（テストなのでシートには書きません）' : '') + '</p><button class="btn main" onclick="renderHome()">一覧にもどる</button>'; } });
 }
 // 声で入力（iPhoneのSafariなど、対応している端末だけ。だめならキーボードのマイクを案内）
 var REC = null;
@@ -317,6 +363,7 @@ function askReject(i) {
 }
 function decide(i, value) {
   var x = LIST.items[i];
+  if (CUR === x && document.getElementById('f_other')) { var pend = collectFields(x); if (Object.keys(pend).length) { writeFields(x, pend, function(ok){ if (ok) decide(i, value); }); return; } }
   if (x.test) {
     x.hire = value; saveTest(x);
     if (value === '採用') view.innerHTML = '<div class="big-check">✓</div><h1 class="center">' + esc(x.name) + 'さんを<br>採用にしました</h1><p class="center sub">（テストなので、シートには書きません）</p><button class="btn main" onclick="openPerson(' + i + ')">このまま書類を撮る</button><button class="btn sec" onclick="renderHome()">一覧にもどる</button>';
