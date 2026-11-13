@@ -215,11 +215,23 @@ function useList(r) {
   var hideTest = false; try { hideTest = localStorage.getItem('testHidden') === '1'; } catch (e) {}
   if (!hideTest && !LIST.items.some(function(x){ return x.test; })) {
     var keep = null; try { keep = JSON.parse(localStorage.getItem('testPerson') || 'null'); } catch (e) {}
+    if (keep && keep.token === '1d4ddaccaa') keep.token = '';  // 以前の共用のテスト記録は使わない
     LIST.items.unshift(keep || testPerson());
   }
   LIST.items.forEach(function(x, i){ x.i = i; });
 }
-function resetTest() { try { localStorage.removeItem('testPerson'); } catch (e) {} var t = testPerson(); var j = LIST.items.findIndex(function(y){ return y.test; }); t.i = j; LIST.items[j] = t; showDetail(j); }
+function resetTest(back) {
+  if (!confirm('テスト　花子さんを最初の状態にもどします。練習で入れた内容・撮った書類・チェックリストも消えます。よろしいですか？')) return;
+  try { localStorage.removeItem('testPerson'); } catch (e) {}
+  var t = testPerson(); var j = LIST ? LIST.items.findIndex(function(y){ return y.test; }) : -1;
+  if (j >= 0) { t.i = j; LIST.items[j] = t; }
+  loading('リセットしています…');
+  run('resetTest', [STAFF], function() {
+    S = null; steps = []; TOKEN = ''; setUrl('');
+    view.innerHTML = '<div class="big-check">↺</div><h1 class="center">テストをリセットしました</h1><p class="center sub">最初の状態から、もう一度練習できます。</p>' +
+      '<button class="btn main" onclick="' + (j >= 0 ? 'showDetail(' + j + ')' : 'showStaffList(true)') + '">テスト　花子さんを開く</button><button class="btn ghost" onclick="showStaffList(true)">一覧にもどる</button>';
+  }, function() { view.innerHTML = '<h1>リセットできませんでした</h1><p>電波のよいところで、もう一度ためしてください。</p><button class="btn main" onclick="showStaffList(true)">一覧にもどる</button>'; });
+}
 function hideTest() { try { localStorage.setItem('testHidden', '1'); } catch (e) {} LIST.items = LIST.items.filter(function(y){ return !y.test; }); LIST.items.forEach(function(x, i){ x.i = i; }); renderHome(); }
 function showTestAgain() { try { localStorage.removeItem('testHidden'); } catch (e) {} useList(LIST); renderHome(); }
 function saveTest(x) { try { localStorage.setItem('testPerson', JSON.stringify(x)); } catch (e) {} }
@@ -359,7 +371,7 @@ function showDetail(i) {
   var x = LIST.items[i]; CUR = x;
   var tel = String(x.tel || '').replace(/\D/g, '');
   var html = '<div class="appbar"><button onclick="renderHome()">‹ 一覧</button><div class="ttl">応募者</div><span style="width:52px"></span></div>';
-  if (x.test) html += '<div class="note"><b>テスト用の応募者です。</b>入力・採用・不採用を押しても、求人シートには書きません。電話番号は「00000000000」なのでつながりません。SMSは送信を押さなければ送られません。 <a href="#" onclick="resetTest();return false;" style="color:var(--g);font-weight:700">テストの入力を消す</a>　<a href="#" onclick="hideTest();return false;" style="color:var(--g);font-weight:700">テスト用を一覧から消す</a></div>';
+  if (x.test) html += '<div class="note"><b>テスト用の応募者です。</b>入力・採用・不採用を押しても、求人シートには書きません（書類とチェックリストは練習用の記録に入ります）。電話番号は「00000000000」なのでつながりません。SMSは送信を押さなければ送られません。 <a href="#" onclick="resetTest();return false;" style="color:var(--g);font-weight:700">↺ テストをリセット</a>　<a href="#" onclick="hideTest();return false;" style="color:var(--g);font-weight:700">テスト用を一覧から消す</a></div>';
   html += '<div class="card"><div class="hero"><div class="av">' + esc(String(x.name).charAt(0)) + '</div><div><div class="nm">' + esc(x.name) + '</div><div class="sub" style="font-size:13px">' + esc(x.kana) + ' · ' + esc(x.label) + ' No.' + esc(x.no) + '</div></div></div>' +
     '<div class="grid">' + [['年齢', x.age ? x.age + '歳' : ''], ['性別', x.sex], ['住所', (x.pref || '') + (x.city || '')], ['応募', [x.media, x.asked].filter(String).join(' · ')], ['電話', x.tel], ['担当', x.tanto]].map(function(p){ return '<div><span>' + p[0] + '</span>' + esc(p[1] || '—') + '</div>'; }).join('') + '</div>';
   if (tel) html += '<div class="acts"><a class="call" href="tel:' + tel + '"><span class="ai">' + TEL_SVG + '</span>電話</a><a class="sms" href="' + smsHref(x) + '" onclick="smsTapped(' + x.i + ')"><span class="ai">' + SMS_SVG + '</span>SMS</a></div>';
@@ -603,7 +615,11 @@ function decide(i, value) {
 function openPerson(i) {
   ON_HOME = false;
   var x = LIST.items[i];
-  if (x.test) x.token = '1d4ddaccaa';
+  if (x.test && !x.token) {
+    loading('準備しています…');
+    run('testToken', [STAFF], function(r) { if (!r || !r.ok) { showError(); return; } x.token = r.token; saveTest(x); TOKEN = r.token; setUrl('t=' + TOKEN); startPerson(); });
+    return;
+  }
   if (x.token) { TOKEN = x.token; setUrl('t=' + TOKEN); startPerson(); return; }
   loading('準備しています…');
   run('staffOpen', [STAFF, x.sheet, x.tab, x.row, x.no], function(r) {
@@ -813,6 +829,7 @@ function showList(resume) {
   if (S.checklist) html += '<a class="btn main" href="' + esc(S.checklist) + '" target="_blank" rel="noopener">📋 契約書類チェックリストを開く</a>';
   else html += '<p class="sub center">契約書類チェックリストは、このあと自動で作られます。</p>';
   html += '<button class="btn ghost" onclick="askCar()">車（持込・リース）を変える</button>';
+  if (S.no === '練習用') html += '<button class="btn danger" onclick="resetTest()">↺ テストをリセット（最初の状態にもどす）</button>';
   view.innerHTML = html;
 }
 function pickRedo() {
