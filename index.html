@@ -313,7 +313,7 @@ var FIELDS = [
   { k: 'prev', label: '前職（エリアなど）', type: 'text' },
   { k: 'other', label: 'その他', type: 'area' }
 ];
-function optionsFor(x, name) { var sid = x.test ? '10eRlQ6wHGJa6oKQ7zAfcRnz9qFXBajJ6uSGnhehHNkc' : x.sheet; var o = LIST.options && LIST.options[sid]; return (o && o[name]) || []; }
+function optionsFor(x, name) { var all = LIST.options || {}, sid = x.test ? Object.keys(all)[0] : x.sheet; var o = all[sid]; return (o && o[name]) || []; }
 function isIOS() { return /iPhone|iPad|iPod/.test(navigator.userAgent); }
 function smsHref(x) {
   var tel = String(x.tel || '').replace(/\D/g, '');
