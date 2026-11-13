@@ -87,7 +87,7 @@
   .hist { margin:8px 0 0; padding:0; list-style:none; font-size:13.5px; }
   .hist li { padding:6px 0 6px 18px; position:relative; border-bottom:1px dashed var(--line); }
   .hist li:before { content:''; position:absolute; left:4px; top:13px; width:6px; height:6px; border-radius:50%; background:var(--warn); }
-  .hist li.h-ai:before { background:#2459c6; } .hist li.h-staff:before { background:var(--g); }
+  .hist li:before { background:#9aa39e !important; }
   .modal { position:fixed; inset:0; background:rgba(10,20,15,.45); display:flex; align-items:flex-end; justify-content:center; z-index:50; }
   .modal .sheet { background:#fff; width:100%; max-width:560px; border-radius:20px 20px 0 0; padding:20px 16px 28px; box-shadow:0 -6px 24px rgba(0,0,0,.15); }
   .fld { margin:10px 0; }
@@ -166,12 +166,22 @@ function isCand(x) { return !isHired(x) && !isRejected(x) && !OUT.test(x.state) 
 function talked(x) { return !!x.interview || /検討中|返事待ち|案件探し/.test(x.state); }
 // まだ対応していない人：シートに入力されただけ（連絡状態が空かSMS送信済みで、面談の内容もまだ）
 function noReachOnly(v) { return !String(v || '').split(/\n|　/).filter(function(l){ return l.trim() && !/電話つながらず/.test(l); }).length; }
+function staffSurname(n) { n = String(n || ''); return /一真|高橋|髙橋/.test(n) ? '高橋' : /赤倉/.test(n) ? '赤倉' : /広瀬/.test(n) ? '広瀬' : n; }
+function staffLabel(n) { var s = staffSurname(n); return s ? s + 'さん' : '担当者'; }
+function smsLine(x) {
+  var out = [];
+  if (x.aiSms) out.push('AIがSMS送信 ' + aiSmsLabel(x).split(' ')[0]);
+  else if (/SMS送信済み/.test(x.state)) out.push(staffLabel(x.tanto) + 'がSMS送信');
+  var ss = staffSmsList(x);
+  if (ss.length) { var l = ss[ss.length - 1], m = l.match(/^(\S+)\s*SMS送信（(.+?)）/); out.push(m ? staffLabel(m[2]) + 'がSMS送信 ' + m[1] : l); }
+  return out.join(' · ');
+}
 function staffSmsList(x) { return String(x.other || '').split(/\n/).filter(function(l){ return /SMS送信（/.test(l); }).map(function(l){ return l.trim(); }); }
 function aiSmsLabel(x) { return x.aiSms ? String(x.aiSms).replace(/^\d{4}-(\d{2})-(\d{2})/, function(_, m, d){ return Number(m) + '/' + Number(d); }) : ''; }
 function contactLog(x) {
   var out = [];
-  if (x.aiSms) out.push({ k: 'ai', t: aiSmsLabel(x) + ' AI秘書が応募時のSMSを送信' });
-  else if (/SMS送信済み/.test(x.state)) out.push({ k: 'staff', t: 'SMS送信済み（担当者が送信・日時はシートに記録なし）' });
+  if (x.aiSms) out.push({ k: 'ai', t: aiSmsLabel(x) + ' AIがSMS送信（応募時）' });
+  else if (/SMS送信済み/.test(x.state)) out.push({ k: 'staff', t: staffLabel(x.tanto) + 'がSMS送信（日時の記録なし）' });
   String(x.other || '').split(/\n/).forEach(function(l){ l = l.trim(); if (/電話つながらず/.test(l)) out.push({ k: 'ng', t: l }); else if (/SMS送信（/.test(l)) out.push({ k: 'staff', t: l }); });
   return out;
 }
@@ -226,9 +236,6 @@ function personBtn(x, onclick) {
   if (x.token) chips += '<span class="tag doing">書類 ' + x.done + '枚</span>';
   var nr = noReachList(x);
   if (nr.length) chips += '<span class="tag ng">📵 つながらず ' + nr.length + '回</span>';
-  if (x.aiSms) chips += '<span class="tag blue">AIがSMS送信 ' + esc(aiSmsLabel(x).split(' ')[0]) + '</span>';
-  else if (/SMS送信済み/.test(x.state)) chips += '<span class="tag">SMS送信済み（担当者）</span>';
-  var ss = staffSmsList(x).length; if (ss) chips += '<span class="tag hire">担当がSMS ' + ss + '回</span>';
   if (x.state && !/^SMS送信済み$/.test(x.state)) chips += '<span class="tag blue">' + esc(x.state) + '</span>';
   if (x.interview) chips += '<span class="tag">面接 ' + esc(String(x.interview).replace(/^\d{4}\//, '')) + '</span>';
   var place = (x.pref || '') + (x.city || '');
@@ -236,6 +243,7 @@ function personBtn(x, onclick) {
   return '<button class="person" onclick="' + onclick + '(' + x.i + ')"><div class="av">' + esc(String(x.name).charAt(0)) + '</div><div class="body">' +
     '<div class="nm">' + esc(x.name) + '</div>' +
     '<div class="meta">' + [x.age ? x.age + '歳' : '', place, x.asked ? '応募 ' + String(x.asked).replace(/^\d{4}\//, '') : '', x.label + ' No.' + x.no].filter(String).map(esc).join(' · ') + '</div>' +
+    (smsLine(x) ? '<div class="meta">' + esc(smsLine(x)) + '</div>' : '') +
     (chips ? '<div class="chips">' + chips + '</div>' : '') + (last && !untouched(x) ? '<div class="last">' + esc(last) + '</div>' : '') +
     '</div><div class="chev">›</div></button>';
 }
@@ -248,7 +256,7 @@ function renderHome(updating) {
   var un = cand.filter(untouched).sort(sortNew);
   var a = un.filter(function(x){ return x.test || daysAgo(x.asked) <= NEW_DAYS; }), old = un.filter(function(x){ return !x.test && daysAgo(x.asked) > NEW_DAYS; });
   var done = cand.filter(function(x){ return !untouched(x); }).sort(sortNew);
-  var html = '<div class="appbar"><div><div class="ttl">採用管理</div><div class="who2" id="homeMark">' + esc(LIST.staff) + 'さん<span id="upd">' + (updating ? '・更新中…' : '') + '</span></div></div><button onclick="showStaffList(true)">⟳ 更新</button></div>';
+  var html = '<div class="appbar"><div><div class="ttl">採用管理</div><div class="who2" id="homeMark">' + esc(staffLabel(LIST.staff)) + '<span id="upd">' + (updating ? '・更新中…' : '') + '</span></div></div><button onclick="showStaffList(true)">⟳ 更新</button></div>';
   html += '<div class="seg">' +
     '<button class="' + (MODE === 'cand' ? 'on' : '') + '" onclick="setMode(\'cand\')">未対応<span class="n">' + a.length + '</span></button>' +
     '<button class="' + (MODE === 'done' ? 'on' : '') + '" onclick="setMode(\'done\')">対応済<span class="n">' + done.length + '</span></button>' +
@@ -304,7 +312,7 @@ function optionsFor(x, name) { var sid = x.test ? '10eRlQ6wHGJa6oKQ7zAfcRnz9qFXB
 function isIOS() { return /iPhone|iPad|iPod/.test(navigator.userAgent); }
 function smsHref(x) {
   var tel = String(x.tel || '').replace(/\D/g, '');
-  var body = x.name + '様\n軽貨物配送本舗の' + (LIST.staff || '') + 'です。先ほどお電話いたしましたが、つながりませんでしたのでご連絡いたしました。ご都合のよいお時間に、こちらの番号へお電話いただけますでしょうか。';
+  var body = x.name + '様\n軽貨物配送本舗の' + staffSurname(LIST.staff) + 'です。先ほどお電話いたしましたが、つながりませんでしたのでご連絡いたしました。ご都合のよいお時間に、こちらの番号へお電話いただけますでしょうか。';
   return 'sms:' + tel + (isIOS() ? '&' : '?') + 'body=' + encodeURIComponent(body);
 }
 function toSheetDate(v) { var m = String(v || '').match(/(\d{4})-(\d{2})-(\d{2})/); return m ? m[1] + '/' + Number(m[2]) + '/' + Number(m[3]) : v; }
@@ -408,7 +416,7 @@ function noReach() {
   var x = CUR, f = collectFields(x);
   var el = document.getElementById('f_other');
   var base = f.other !== undefined ? f.other : (x.other || '');
-  f.other = (base ? base + '\n' : '') + todayMD() + ' 電話つながらず（' + (LIST.staff || '') + '）';
+  f.other = (base ? base + '\n' : '') + todayMD() + ' 電話つながらず（' + staffLabel(LIST.staff) + '）';
   if (el) el.value = f.other;
   writeFields(x, f, function(ok) { if (ok) { view.innerHTML = '<div class="big-check">📵</div><h1 class="center">「電話つながらず」を記録しました</h1><p class="center sub">' + esc(x.name) + 'さんは「対応済」に入りました。' + (x.test ? '（テストなのでシートには書きません）' : '') + '</p>' +
     (String(x.tel || '').replace(/\D/g, '') ? '<a class="btn sec" style="display:flex;align-items:center;justify-content:center;gap:8px;color:#2459c6" href="' + smsHref(x) + '" onclick="smsTapped(' + x.i + ')"><span class="ai" style="width:18px;height:18px">' + SMS_SVG + '</span>SMSを送る</a>' : '') + '<button class="btn main" onclick="renderHome()">一覧にもどる</button><button class="btn ghost" onclick="showDetail(' + x.i + ')">この人の画面にもどる</button>'; } });
@@ -435,7 +443,7 @@ function smsSent(yes) {
   var m = document.getElementById('smsq'); if (m) m.remove();
   if (!yes || i === null) return;
   var x = LIST.items[i];
-  var f = {}; f.other = (x.other ? x.other + '\n' : '') + todayMD() + ' SMS送信（' + (LIST.staff || '') + '）';
+  var f = {}; f.other = (x.other ? x.other + '\n' : '') + todayMD() + ' SMS送信（' + staffLabel(LIST.staff) + '）';
   writeFields(x, f, function(ok) {
     var el = document.getElementById('f_other'); if (el && ok) el.value = x.other;
     if (CUR === x && document.getElementById('f_other') && ok) showDetail(x.i);
