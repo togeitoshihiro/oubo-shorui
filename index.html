@@ -140,7 +140,7 @@
 <input type="file" id="pick" accept="image/*">
 
 <script>
-var APP_VERSION = '2026-11-13-23';
+var APP_VERSION = '2026-11-13-24';
 var API = 'https://script.google.com/macros/s/AKfycbxXqXGMgSnxYJre2Lpq8D7lV5ksrwsQl8tC4yrOCl5EN2Z_IRVb45DH_fQrS73eaLnGUw/exec';
 var Q = new URLSearchParams(location.search);
 var TOKEN = (Q.get('t') || '').trim();
@@ -286,6 +286,7 @@ function renderHome(updating) {
   var done = cand.filter(function(x){ return !untouched(x); }).sort(sortNew);
   drawTop(updating);
   var html = '';
+  if (window._showSearch) html += '<input class="search" id="sq" placeholder="🔍 名前・フリガナ・No.でさがす" oninput="searchCand(this.value)"><div id="sres"></div>';
   html += '<div class="seg">' +
     '<button class="' + (MODE === 'cand' ? 'on' : '') + '" onclick="setMode(\'cand\')">未対応<span class="n">' + a.length + '</span></button>' +
     '<button class="' + (MODE === 'done' ? 'on' : '') + '" onclick="setMode(\'done\')">対応済<span class="n">' + done.length + '</span></button>' +
@@ -311,11 +312,16 @@ function renderHome(updating) {
     if (window._openOld) { html += '<h2>' + (NEW_DAYS + 1) + '日以上前の未対応（' + old.length + '人）</h2>'; old.forEach(function(x){ html += personBtn(x, 'showDetail'); }); html += '<button class="btn ghost" onclick="window._openOld=false;renderHome()">とじる</button>'; }
     else if (old.length) html += '<button class="btn ghost" onclick="window._openOld=true;renderHome()">' + (NEW_DAYS + 1) + '日以上前の未対応（' + old.length + '人）›</button>';
   }
-  if (MODE !== 'hired') html += '<input class="search" placeholder="🔍 名前・No.でさがす" oninput="searchCand(this.value)"><div id="sres"></div>';
   var th = false; try { th = localStorage.getItem('testHidden') === '1'; } catch (e) {}
   html += th ? '<button class="btn ghost" onclick="showTestAgain()">練習用のテスト応募者を表示する</button>' : (LIST.items.some(function(y){ return y.test; }) ? '<button class="btn ghost" onclick="hideTest()">練習用のテスト応募者を消す</button>' : '');
   view.innerHTML = html;
   window.scrollTo(0, 0);
+}
+function openSearch() {
+  window._showSearch = !window._showSearch;
+  if (!ON_HOME || !LIST) return;
+  renderHome();
+  var e = document.getElementById('sq'); if (e) e.focus();
 }
 function searchCand(q) {
   var norm = function(v){ return String(v || '').replace(/[\s　]/g, ''); };
@@ -642,7 +648,7 @@ function drawTop(updating) {
   if (!STAFF) { g.classList.add('hide'); return; }
   var who = LIST && LIST.staff ? staffLabel(LIST.staff) : '';
   g.innerHTML = '<div><div class="ttl" onclick="goHome()">採用管理</div><div class="who2" id="homeMark">' + esc(who) + '<span id="upd">' + (updating ? '・更新中…' : '') + '</span></div></div>' +
-    (ON_HOME ? '<button onclick="showStaffList(true)">⟳ 更新</button>' : '<button onclick="goHome()">‹ 一覧</button>');
+    (ON_HOME ? '<div style="display:flex;gap:6px"><button onclick="openSearch()" aria-label="さがす">🔍</button><button onclick="showStaffList(true)">⟳ 更新</button></div>' : '<button onclick="goHome()">‹ 一覧</button>');
   g.classList.remove('hide');
 }
 function goHome() {
