@@ -80,7 +80,10 @@
   .grid div { font-size:14px; } .grid span { display:block; font-size:11.5px; color:var(--sub); }
   .acts { display:flex; gap:8px; margin-top:12px; }
   .acts a, .acts button { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; border-radius:12px; padding:12px; font-weight:700; font-size:15px; text-decoration:none; border:0; font-family:inherit; cursor:pointer; }
-  .acts .call { background:var(--g); color:#fff; } .acts .sms { background:#e8f0fd; color:#2459c6; }
+  .acts .call { background:linear-gradient(135deg, var(--gd), var(--g2)); color:#fff; box-shadow:0 4px 12px rgba(18,122,60,.25); }
+  .acts .sms { background:#e8f0fd; color:#2459c6; }
+  .acts a:active { transform:scale(.97); }
+  .ai { display:inline-flex; width:20px; height:20px; } .ai svg { width:100%; height:100%; }
   .hist { margin:8px 0 0; padding:0; list-style:none; font-size:13.5px; }
   .hist li { padding:6px 0 6px 18px; position:relative; border-bottom:1px dashed var(--line); }
   .hist li:before { content:''; position:absolute; left:4px; top:13px; width:6px; height:6px; border-radius:50%; background:var(--warn); }
@@ -309,6 +312,8 @@ function fieldHtml(x, f) {
   } else input = '<input id="' + id + '" value="' + esc(v) + '" onchange="saveField(\'' + f.k + '\')">';
   return '<div class="fld"><label for="' + id + '">' + f.label + ' <span class="saved" id="s_' + f.k + '"></span></label><div class="frow">' + input + mic + '</div></div>';
 }
+var TEL_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2z"/></svg>';
+var SMS_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20.5l1.4-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01" stroke-width="2.6"/></svg>';
 var MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>';
 var CUR = null;
 function showDetail(i) {
@@ -319,7 +324,7 @@ function showDetail(i) {
   if (x.test) html += '<div class="note"><b>テスト用の応募者です。</b>入力・採用・不採用を押しても、求人シートには書きません。電話番号は「00000000000」なのでつながりません。SMSは送信を押さなければ送られません。 <a href="#" onclick="resetTest();return false;" style="color:var(--g);font-weight:700">テストの入力を消す</a></div>';
   html += '<div class="card"><div class="hero"><div class="av">' + esc(String(x.name).charAt(0)) + '</div><div><div class="nm">' + esc(x.name) + '</div><div class="sub" style="font-size:13px">' + esc(x.kana) + ' · ' + esc(x.label) + ' No.' + esc(x.no) + '</div></div></div>' +
     '<div class="grid">' + [['年齢', x.age ? x.age + '歳' : ''], ['性別', x.sex], ['住所', (x.pref || '') + (x.city || '')], ['応募', [x.media, x.asked].filter(String).join(' · ')], ['電話', x.tel], ['担当', x.tanto]].map(function(p){ return '<div><span>' + p[0] + '</span>' + esc(p[1] || '—') + '</div>'; }).join('') + '</div>';
-  if (tel) html += '<div class="acts"><a class="call" href="tel:' + tel + '">📞 電話</a><a class="sms" href="' + smsHref(x) + '">💬 SMS</a></div>';
+  if (tel) html += '<div class="acts"><a class="call" href="tel:' + tel + '"><span class="ai">' + TEL_SVG + '</span>電話</a><a class="sms" href="' + smsHref(x) + '"><span class="ai">' + SMS_SVG + '</span>SMS</a></div>';
   html += '</div>';
   var nr = noReachList(x);
   if (nr.length) html += '<div class="card"><b style="font-size:14px">📵 電話がつながらなかった記録（' + nr.length + '回）</b><ul class="hist">' + nr.map(function(l){ return '<li>' + esc(l) + '</li>'; }).join('') + '</ul></div>';
@@ -391,7 +396,7 @@ function noReach() {
   f.other = (base ? base + '\n' : '') + todayMD() + ' 電話つながらず（' + (LIST.staff || '') + '）';
   if (el) el.value = f.other;
   writeFields(x, f, function(ok) { if (ok) { view.innerHTML = '<div class="big-check">📵</div><h1 class="center">「電話つながらず」を記録しました</h1><p class="center sub">' + esc(x.name) + 'さんは「対応済」に入りました。' + (x.test ? '（テストなのでシートには書きません）' : '') + '</p>' +
-    (String(x.tel || '').replace(/\D/g, '') ? '<a class="btn sec" href="' + smsHref(x) + '">💬 SMSを送る</a>' : '') + '<button class="btn main" onclick="renderHome()">一覧にもどる</button><button class="btn ghost" onclick="showDetail(' + x.i + ')">この人の画面にもどる</button>'; } });
+    (String(x.tel || '').replace(/\D/g, '') ? '<a class="btn sec" style="display:flex;align-items:center;justify-content:center;gap:8px;color:#2459c6" href="' + smsHref(x) + '"><span class="ai" style="width:18px;height:18px">' + SMS_SVG + '</span>SMSを送る</a>' : '') + '<button class="btn main" onclick="renderHome()">一覧にもどる</button><button class="btn ghost" onclick="showDetail(' + x.i + ')">この人の画面にもどる</button>'; } });
 }
 function holdOn() {
   var x = CUR, f = collectFields(x);
