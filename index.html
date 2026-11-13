@@ -148,13 +148,21 @@ function renderHome() {
     html += '<h2>面談した・検討中（' + a.length + '人）</h2>';
     a.forEach(function(x){ html += personBtn(x, 'showDetail'); });
     if (!a.length) html += '<p class="sub">いません。</p>';
-    html += '<h2>これから面談（' + b.length + '人）</h2>';
-    b.forEach(function(x){ html += personBtn(x, 'showDetail'); });
+    if (window._openB) { html += '<h2>これから面談（' + b.length + '人）</h2>'; b.forEach(function(x){ html += personBtn(x, 'showDetail'); }); html += '<button class="btn ghost" onclick="window._openB=false;renderHome()">「これから面談」をとじる</button>'; }
+    else html += '<button class="btn sec" onclick="window._openB=true;renderHome()">これから面談の人も見る（' + b.length + '人）</button>';
+    html += '<input class="search" placeholder="名前・No.でさがす" oninput="searchCand(this.value)"><div id="sres"></div>';
     html += '<button class="btn ghost" onclick="setMode(\'rej\')">不採用にした人を見る（' + rej.length + '人）</button>';
   }
   html += '<button class="btn ghost" onclick="showStaffList(true)">一覧を読み込み直す</button>';
   view.innerHTML = html;
   window.scrollTo(0, 0);
+}
+function searchCand(q) {
+  var norm = function(v){ return String(v || '').replace(/[\s　]/g, ''); };
+  q = norm(q); var el = document.getElementById('sres'); if (!el) return;
+  if (!q) { el.innerHTML = ''; return; }
+  var hit = LIST.items.filter(function(x){ return norm(x.name + x.kana + x.no).indexOf(q) >= 0; }).slice(0, 20);
+  el.innerHTML = hit.length ? hit.map(function(x){ return personBtn(x, 'showDetail'); }).join('') : '<p class="sub">見つかりません。</p>';
 }
 function row(label, v) { return v ? '<li><span class="sub" style="font-size:16px;white-space:nowrap">' + label + '</span><span style="text-align:right">' + esc(v) + '</span></li>' : ''; }
 function showDetail(i) {
@@ -187,7 +195,7 @@ function askReject(i) {
 function decide(i, value) {
   var x = LIST.items[i];
   loading('記録しています…');
-  run('setHire', [STAFF, x.sheet, x.tab, x.no, value], function(r) {
+  run('setHire', [STAFF, x.sheet, x.tab, x.row, x.no, x.name, value], function(r) {
     if (!r || !r.ok) { view.innerHTML = '<h1>記録できませんでした</h1><p>もう一度ためしてください。</p><button class="btn main" onclick="showDetail(' + i + ')">もどる</button>'; return; }
     x.hire = value;
     if (value === '採用') {
@@ -202,7 +210,7 @@ function openPerson(i) {
   var x = LIST.items[i];
   if (x.token) { TOKEN = x.token; setUrl('t=' + TOKEN); startPerson(); return; }
   loading('準備しています…');
-  run('staffOpen', [STAFF, x.sheet, x.tab, x.no], function(r) {
+  run('staffOpen', [STAFF, x.sheet, x.tab, x.row, x.no], function(r) {
     if (!r || !r.ok) { showError(); return; }
     x.token = r.token; TOKEN = r.token; setUrl('t=' + TOKEN); startPerson();
   });
