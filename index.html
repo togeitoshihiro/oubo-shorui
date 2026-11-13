@@ -224,7 +224,7 @@ function showStaffList(reload) {
   if (!shown) loading('応募者の一覧を読み込んでいます…');
   run('staffList', [STAFF], function(r) {
     if (!r || !r.ok) { if (!shown) view.innerHTML = '<h1>このリンクでは開けません</h1><p>担当者用のリンクを、もう一度開いてください。</p>'; return; }
-    try { localStorage.setItem(cacheKey(), JSON.stringify({ ok: r.ok, staff: r.staff, options: r.options, at: r.at, items: r.items.filter(function(x){ return !x.test; }) })); } catch (e) {}
+    try { localStorage.setItem(cacheKey(), JSON.stringify({ ok: r.ok, staff: r.staff, options: r.options, fix: r.fix, at: r.at, items: r.items.filter(function(x){ return !x.test; }) })); } catch (e) {}
     useList(r);
     if (!shown) { renderHome(); return; }
     if (ON_HOME && document.getElementById('homeMark')) { var ae = document.activeElement; if (ae && ae.tagName === 'INPUT') { var m = document.getElementById('upd'); if (m) m.textContent = ''; } else renderHome(); }
@@ -387,7 +387,7 @@ function saveField(k) {
   var f = {}; f[k] = v;
   run('setFields', [STAFF, x.sheet, x.tab, x.row, x.no, x.name, f], function(r) {
     if (r && r.ok && r.done && r.done.indexOf(k) >= 0) {
-      x[k] = v; try { localStorage.setItem(cacheKey(), JSON.stringify({ ok: true, staff: LIST.staff, options: LIST.options, at: LIST.at, items: LIST.items.filter(function(y){ return !y.test; }) })); } catch (e) {}
+      x[k] = v; try { localStorage.setItem(cacheKey(), JSON.stringify({ ok: true, staff: LIST.staff, options: LIST.options, fix: LIST.fix, at: LIST.at, items: LIST.items.filter(function(y){ return !y.test; }) })); } catch (e) {}
       if (mark) { mark.textContent = '✓ 保存しました'; mark.className = 'saved ok'; }
     } else if (mark) { mark.textContent = '保存できませんでした'; mark.className = 'saved ng'; }
   }, function() { if (mark) { mark.textContent = '保存できませんでした（電波を確認）'; mark.className = 'saved ng'; } });
@@ -408,7 +408,7 @@ function writeFields(x, f, done) {
   if (msg) msg.textContent = '保存しています…';
   var finish = function(ok) {
     if (ok) { keys.forEach(function(k){ x[k] = f[k]; var m = document.getElementById('s_' + k); if (m) { m.textContent = '✓ 保存しました'; m.className = 'saved ok'; } });
-      try { if (x.test) saveTest(x); else localStorage.setItem(cacheKey(), JSON.stringify({ ok: true, staff: LIST.staff, options: LIST.options, at: LIST.at, items: LIST.items.filter(function(y){ return !y.test; }) })); } catch (e) {} }
+      try { if (x.test) saveTest(x); else localStorage.setItem(cacheKey(), JSON.stringify({ ok: true, staff: LIST.staff, options: LIST.options, fix: LIST.fix, at: LIST.at, items: LIST.items.filter(function(y){ return !y.test; }) })); } catch (e) {} }
     if (msg) { msg.textContent = ok ? '✓ シートに保存しました' + (x.test ? '（テストなので実際には書きません）' : '') : '保存できませんでした。電波を確かめて、もう一度おしてください。'; msg.style.color = ok ? 'var(--g)' : 'var(--warn)'; }
     done && done(ok);
   };
@@ -502,6 +502,15 @@ function speechDate(v) {
   else return '';
   return d.getFullYear() + '/' + (d.getMonth() + 1) + '/' + d.getDate();
 }
+// 聞き間違いを直す（「応募書類 受付」の「聞き間違いの直し」タブの表）と、話し終わりの「以上」を消す
+function fixSpeech(t) {
+  t = String(t || '');
+  var list = ((LIST && LIST.fix) || [['自体', '辞退']]).slice().sort(function(a, b){ return b[0].length - a[0].length; });
+  list.forEach(function(p){ if (p[0]) t = t.split(p[0]).join(p[1]); });
+  // 最後の「以上」は話し終わりの合図（「3回以上」「5万以上」のように数字の直後はそのまま）
+  t = t.replace(/([^0-9０-９回日万円時間年件個人台])[、。,.\s　]*以上(です)?[。\s　]*$/, '$1').replace(/^[、。\s　]*以上[。\s　]*$/, '');
+  return t.trim();
+}
 var UNDO = null;
 function applySplit(x, text, beforeOther) {
   var r = splitSpeech(text, x), f = {}, prev = {};
@@ -550,7 +559,7 @@ function listen(k, big) {
     if (el) el.value = (before && k === 'other' ? before + '　' : (k === 'other' ? before : '')) + finalText + interim;
   };
   rec.onerror = function() { if (mark) { mark.textContent = '聞き取れませんでした'; mark.className = 'saved ng'; } };
-  rec.onend = function() { REC = null; if (btn) btn.classList.remove('on'); if (big && finalText) { if (el) el.value = before; applySplit(CUR, finalText, before); return; } if (bt) bt.textContent = '項目の名前を言ってから話すと、その項目に入ります'; if (finalText) saveField(k); else if (mark && mark.textContent.indexOf('聞いています') === 0) mark.textContent = ''; };
+  rec.onend = function() { REC = null; if (btn) btn.classList.remove('on'); finalText = fixSpeech(finalText); if (el && !big && finalText) el.value = (before && k === 'other' ? before + '　' : (k === 'other' ? before : '')) + finalText; if (big && finalText) { if (el) el.value = before; applySplit(CUR, finalText, before); return; } if (bt) bt.textContent = '項目の名前を言ってから話すと、その項目に入ります'; if (finalText) saveField(k); else if (mark && mark.textContent.indexOf('聞いています') === 0) mark.textContent = ''; };
   try { rec.start(); } catch (e) { REC = null; if (btn) btn.classList.remove('on'); }
 }
 function askReject(i) {
@@ -572,7 +581,7 @@ function decide(i, value) {
   run('setHire', [STAFF, x.sheet, x.tab, x.row, x.no, x.name, value], function(r) {
     if (!r || !r.ok) { view.innerHTML = '<h1>記録できませんでした</h1><p>もう一度ためしてください。</p><button class="btn main" onclick="showDetail(' + i + ')">もどる</button>'; return; }
     x.hire = value;
-    try { localStorage.setItem(cacheKey(), JSON.stringify({ ok: true, staff: LIST.staff, options: LIST.options, at: LIST.at, items: LIST.items.filter(function(y){ return !y.test; }) })); } catch (e) {}
+    try { localStorage.setItem(cacheKey(), JSON.stringify({ ok: true, staff: LIST.staff, options: LIST.options, fix: LIST.fix, at: LIST.at, items: LIST.items.filter(function(y){ return !y.test; }) })); } catch (e) {}
     if (value === '採用') {
       view.innerHTML = '<div class="big-check">✓</div><h1 class="center">' + esc(x.name) + 'さんを<br>採用にしました</h1><p class="center sub">「採用した人」の一覧に入りました。</p>' +
         '<button class="btn main" onclick="openPerson(' + i + ')">このまま書類を撮る</button><button class="btn sec" onclick="renderHome()">採用候補の一覧にもどる</button>';
