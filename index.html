@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>応募者の書類アップロード</title>
+<title>応募者の採用と書類</title>
 <style>
   :root { --g:#1a7f37; --gd:#116329; --bg:#f6f8f6; --ink:#1d1d1f; --sub:#5b5f66; --line:#d9ded9; --warn:#b42318; --warnbg:#fdecea; --note:#fff7e0; }
   * { box-sizing:border-box; }
@@ -93,47 +93,121 @@ function loading(msg) { view.innerHTML = '<div class="spin"></div><p class="cent
 function setUrl(params) { history.replaceState(null, '', location.pathname + (params ? '?' + params : '')); }
 
 // ===== 担当者の一覧 =====
-function showStaffList() {
+// 採用候補：採用可否が空で、辞退・年齢制限などでない人。押すと詳しい情報と「採用」「不採用」
+// 採用した人：採用可否が「採用」の人（と書類を撮りかけの人）。押すと書類を撮る
+var MODE = 'cand';
+try { MODE = localStorage.getItem('staffMode') || 'cand'; } catch (e) {}
+var OUT = /年齢制限|辞退|音信不通|空き無し|応募課金|契約/;
+function isHired(x) { return /^採用/.test(x.hire) || !!x.token; }
+function isRejected(x) { return /不採用/.test(x.hire); }
+var RECENT_DAYS = 45; // 採用候補は、応募日がこの日数以内の人だけ
+function daysAgo(s) { var m = String(s || '').match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/); if (!m) return 9999; return Math.floor((Date.now() - new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime()) / 86400000); }
+function isCand(x) { return !isHired(x) && !isRejected(x) && !OUT.test(x.state) && daysAgo(x.asked) <= RECENT_DAYS; }
+function talked(x) { return !!x.interview || /検討中|返事待ち|案件探し/.test(x.state); }
+function dkey(s) { var m = String(s || '').match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/); return m ? Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]) : 0; }
+
+function showStaffList(reload) {
   document.getElementById('bar').classList.add('hide');
+  if (LIST && !reload) { renderHome(); return; }
   loading('応募者の一覧を読み込んでいます…');
   run('staffList', [STAFF], function(r) {
     if (!r || !r.ok) { view.innerHTML = '<h1>このリンクでは開けません</h1><p>担当者用のリンクを、もう一度開いてください。</p>'; return; }
     LIST = r;
-    renderList('');
+    LIST.items.forEach(function(x, i){ x.i = i; });
+    renderHome();
   });
 }
-function renderList(q) {
-  var items = LIST.items.slice();
-  var norm = function(s){ return String(s || '').replace(/[\s　]/g, ''); };
-  if (q) items = items.filter(function(x){ return norm(x.name + x.kana + x.no).indexOf(norm(q)) >= 0; });
-  var score = function(x){ return (x.token ? 2 : 0) + (/採用/.test(x.hire) ? 1 : 0); };
-  items.sort(function(a, b){ return score(b) - score(a); });
-  var top = items.filter(function(x){ return score(x) > 0; });
-  var rest = items.filter(function(x){ return score(x) === 0; });
-  var html = '<h1>応募者を選んでください</h1><p class="sub">' + esc(LIST.staff) + 'さん　面談で受け取った書類を撮ってアップロードします。</p>' +
-    '<input class="search" id="q" placeholder="名前・No.でさがす" value="' + esc(q) + '" oninput="renderList(this.value)">';
-  var card = function(x, i) {
-    var tags = (/採用/.test(x.hire) ? '<span class="tag hire">採用</span>' : '') + (x.token ? '<span class="tag doing">書類 ' + x.done + '枚</span>' : '');
-    return '<button class="person" onclick="openPerson(' + i + ')"><span class="nm">' + esc(x.name) + '</span>' + tags +
-      '<div class="meta">' + esc(x.label) + ' No.' + esc(x.no) + '　' + esc(x.tab.replace(/\s*面接シート/, '')) + (x.age ? '　' + esc(x.age) + '歳' : '') + (x.tel4 ? '　電話 …' + esc(x.tel4) : '') + (x.state ? '　' + esc(x.state) : '') + '</div></button>';
-  };
-  window._shown = top.concat(rest);
-  if (top.length) { html += '<h2>採用・書類を撮りかけの人</h2>'; top.forEach(function(x, i){ html += card(x, i); }); }
-  if (q || !top.length) { html += '<h2>' + (q ? 'さがした結果' : 'ほかの応募者') + '</h2>'; rest.slice(0, 40).forEach(function(x, i){ html += card(x, top.length + i); }); if (!rest.length) html += '<p class="sub">見つかりません。</p>'; }
-  else html += '<p class="sub">ほかの応募者は、上の「さがす」に名前かNo.を入れてください。</p>';
+function setMode(m) { MODE = m; try { localStorage.setItem('staffMode', m); } catch (e) {} renderHome(); }
+function personBtn(x, onclick) {
+  var tags = (/^採用/.test(x.hire) ? '<span class="tag hire">採用</span>' : '') + (x.token ? '<span class="tag doing">書類 ' + x.done + '枚</span>' : '') + (isRejected(x) ? '<span class="tag">不採用</span>' : '');
+  var place = (x.pref || '') + (x.city || '');
+  return '<button class="person" onclick="' + onclick + '(' + x.i + ')"><span class="nm">' + esc(x.name) + '</span>' + tags +
+    '<div class="meta">' + (x.age ? esc(x.age) + '歳　' : '') + (place ? esc(place) + '　' : '') + (x.asked ? '応募 ' + esc(x.asked.replace(/^\d{4}\//, '')) + '　' : '') + (x.state ? esc(x.state) : '') + '</div>' +
+    '<div class="meta">' + esc(x.label) + ' No.' + esc(x.no) + '</div></button>';
+}
+function renderHome() {
+  var items = LIST.items;
+  var cand = items.filter(isCand), hired = items.filter(isHired), rej = items.filter(isRejected);
+  var sortNew = function(a, b){ return dkey(b.asked) - dkey(a.asked) || Number(b.no) - Number(a.no); };
+  var tabs = '<div style="display:flex;gap:8px;margin:6px 0 4px">' +
+    '<button class="btn ' + (MODE === 'cand' ? 'main' : 'sec') + '" style="margin:0;font-size:18px;padding:14px 6px" onclick="setMode(\'cand\')">採用候補<br><span style="font-size:15px">' + cand.length + '人</span></button>' +
+    '<button class="btn ' + (MODE === 'hired' ? 'main' : 'sec') + '" style="margin:0;font-size:18px;padding:14px 6px" onclick="setMode(\'hired\')">採用した人<br><span style="font-size:15px">書類 ' + hired.length + '人</span></button></div>';
+  var html = '<p class="sub" style="margin:4px 0">' + esc(LIST.staff) + 'さん</p>' + tabs;
+  if (MODE === 'hired') {
+    html += '<h1>採用した人の書類</h1><p class="sub">選ぶと、面談で受け取った書類を撮ってアップロードできます。</p>';
+    hired.sort(sortNew).forEach(function(x){ html += personBtn(x, 'openPerson'); });
+    if (!hired.length) html += '<p class="sub">まだいません。「採用候補」で採用にした人が、ここに出ます。</p>';
+  } else if (MODE === 'rej') {
+    html += '<h1>不採用にした人</h1><p class="sub">まちがえたときは、選んで「採用候補にもどす」を押してください。</p>';
+    rej.sort(sortNew).forEach(function(x){ html += personBtn(x, 'showDetail'); });
+    if (!rej.length) html += '<p class="sub">いません。</p>';
+    html += '<button class="btn ghost" onclick="setMode(\'cand\')">採用候補にもどる</button>';
+  } else {
+    var a = cand.filter(talked).sort(sortNew), b = cand.filter(function(x){ return !talked(x); }).sort(sortNew);
+    html += '<h1>採用候補</h1><p class="sub">応募から'+RECENT_DAYS+'日以内の人です。名前を押すと、くわしい情報が出ます。そこで「採用」「不採用」を決められます。</p>';
+    html += '<h2>面談した・検討中（' + a.length + '人）</h2>';
+    a.forEach(function(x){ html += personBtn(x, 'showDetail'); });
+    if (!a.length) html += '<p class="sub">いません。</p>';
+    html += '<h2>これから面談（' + b.length + '人）</h2>';
+    b.forEach(function(x){ html += personBtn(x, 'showDetail'); });
+    html += '<button class="btn ghost" onclick="setMode(\'rej\')">不採用にした人を見る（' + rej.length + '人）</button>';
+  }
+  html += '<button class="btn ghost" onclick="showStaffList(true)">一覧を読み込み直す</button>';
   view.innerHTML = html;
-  var el = document.getElementById('q'); if (el && q) { el.focus(); el.setSelectionRange(q.length, q.length); }
+  window.scrollTo(0, 0);
+}
+function row(label, v) { return v ? '<li><span class="sub" style="font-size:16px;white-space:nowrap">' + label + '</span><span style="text-align:right">' + esc(v) + '</span></li>' : ''; }
+function showDetail(i) {
+  var x = LIST.items[i];
+  var tel = String(x.tel || '').replace(/\D/g, '');
+  var html = '<h1>' + esc(x.name) + '</h1><p class="sub">' + esc(x.kana) + '　' + esc(x.label) + ' No.' + esc(x.no) + '</p>';
+  html += '<ul class="list">' + row('年齢', x.age ? x.age + '歳' : '') + row('性別', x.sex) + row('住所', (x.pref || '') + (x.city || '')) + row('お住まい', x.home) +
+    row('電話', x.tel) + row('応募媒体', x.media) + row('応募日', x.asked) + row('面接日', x.interview) + row('連絡状態', x.state) + row('面接担当', x.tanto) +
+    row('希望エリア', x.area) + row('希望の仕事', x.job) + row('車・保険', x.car) + row('ドライバー経験', x.exp) + row('前職', x.prev) + row('希望手取り', x.pay) + row('初回出勤', x.first) + '</ul>';
+  if (x.other) html += '<div class="card"><b class="sub">その他</b><p>' + esc(x.other) + '</p></div>';
+  if (tel) html += '<a class="btn sec" href="tel:' + tel + '">電話をかける</a>';
+  if (isRejected(x)) {
+    html += '<button class="btn sec" onclick="decide(' + i + ',\'\')">採用候補にもどす</button>';
+  } else if (/^採用/.test(x.hire)) {
+    html += '<button class="btn main" onclick="openPerson(' + i + ')">書類を撮る</button><button class="btn ghost" onclick="decide(' + i + ',\'\')">採用をとりけす（候補にもどす）</button>';
+  } else {
+    html += '<button class="btn main" onclick="decide(' + i + ',\'採用\')">採用</button>' +
+      '<button class="btn sec" style="color:var(--warn);border-color:#f0c4bf" onclick="askReject(' + i + ')">不採用</button>';
+  }
+  html += '<button class="btn ghost" onclick="renderHome()">一覧にもどる</button>';
+  view.innerHTML = html;
+  window.scrollTo(0, 0);
+}
+function askReject(i) {
+  var x = LIST.items[i];
+  view.innerHTML = '<h1>' + esc(x.name) + 'さんを不採用にしますか？</h1><p>採用候補の一覧から消えます（「不採用にした人を見る」から、もとにもどせます）。</p>' +
+    '<button class="btn main" style="background:var(--warn);box-shadow:none" onclick="decide(' + i + ',\'不採用\')">不採用にする</button>' +
+    '<button class="btn sec" onclick="showDetail(' + i + ')">やめる</button>';
+}
+function decide(i, value) {
+  var x = LIST.items[i];
+  loading('記録しています…');
+  run('setHire', [STAFF, x.sheet, x.tab, x.no, value], function(r) {
+    if (!r || !r.ok) { view.innerHTML = '<h1>記録できませんでした</h1><p>もう一度ためしてください。</p><button class="btn main" onclick="showDetail(' + i + ')">もどる</button>'; return; }
+    x.hire = value;
+    if (value === '採用') {
+      view.innerHTML = '<div class="big-check">✓</div><h1 class="center">' + esc(x.name) + 'さんを<br>採用にしました</h1><p class="center sub">「採用した人」の一覧に入りました。</p>' +
+        '<button class="btn main" onclick="openPerson(' + i + ')">このまま書類を撮る</button><button class="btn sec" onclick="renderHome()">採用候補の一覧にもどる</button>';
+    } else {
+      renderHome();
+    }
+  });
 }
 function openPerson(i) {
-  var x = window._shown[i];
+  var x = LIST.items[i];
   if (x.token) { TOKEN = x.token; setUrl('t=' + TOKEN); startPerson(); return; }
   loading('準備しています…');
   run('staffOpen', [STAFF, x.sheet, x.tab, x.no], function(r) {
     if (!r || !r.ok) { showError(); return; }
-    TOKEN = r.token; setUrl('t=' + TOKEN); startPerson();
+    x.token = r.token; TOKEN = r.token; setUrl('t=' + TOKEN); startPerson();
   });
 }
-function backToList() { TOKEN = ''; S = null; steps = []; setUrl(''); showStaffList(); }
+function backToList() { TOKEN = ''; S = null; steps = []; setUrl(''); MODE = MODE === 'cand' ? 'hired' : MODE; showStaffList(true); }
 
 // ===== 1人分の書類 =====
 function setBar() {
