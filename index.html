@@ -118,6 +118,9 @@
   .voice.on .vi::after { content:''; position:absolute; inset:-5px; border-radius:50%; border:2px solid #fff; animation:ring 1.2s ease-out infinite; }
   @keyframes pulse { 50% { opacity:.55; } }
   .saved { font-size:11.5px; margin-left:6px; font-weight:700; } .saved.ok { color:var(--g); } .saved.ng { color:var(--warn); }
+  .chips2 { display:flex; flex-wrap:wrap; gap:6px; }
+  .opt { border:1.5px solid var(--line); background:#fff; border-radius:999px; padding:8px 14px; font-size:15px; font-family:inherit; cursor:pointer; color:var(--ink); }
+  .opt.on { background:var(--g); border-color:var(--g); color:#fff; font-weight:700; }
   #qr { display:flex; justify-content:center; margin:14px 0; }
   #qr img, #qr canvas { width:230px !important; height:230px !important; }
 </style>
@@ -621,7 +624,7 @@ function setBar() {
   document.getElementById('progi').style.width = Math.round(n / steps.length * 100) + '%';
   document.getElementById('count').textContent = n + ' / ' + steps.length + ' おわり';
 }
-function needSteps() { return S.docs.filter(function(d){ return !d.car || S.car === '持込'; }); }
+function needSteps() { var sg = /佐川/.test((S.info && S.info.itaku) || ''); return S.docs.filter(function(d){ return (!d.car || S.car === '持込') && (!d.lease || S.car === 'リース') && (!d.sagawa || sg); }); }
 function firstTodo() {
   for (var i = 0; i < steps.length; i++) { var k = steps[i].key; if (S.done.indexOf(k) < 0 && S.later.indexOf(k) < 0) return i; }
   return -1;
@@ -649,7 +652,7 @@ function askCar() {
     '<button class="btn main" onclick="chooseCar(\'持込\')">自分の車（持込）</button>' +
     '<button class="btn main" onclick="chooseCar(\'リース\')">会社の車を借りる（リース）</button>';
 }
-function chooseCar(c) { S.car = c; run('setCar', [TOKEN, c], function(){}); steps = needSteps(); setBar(); goNext(); }
+function chooseCar(c) { S.car = c; run('setCar', [TOKEN, c], function(){}); steps = needSteps(); setBar(); if (!S.info || !S.info.start) showInfo(true); else goNext(); }
 
 function goNext() { var i = firstTodo(); if (i < 0) { showFinish(); return; } cur = i; page = 1; showDoc(); }
 
@@ -657,7 +660,7 @@ function showDoc() {
   var d = steps[cur];
   setBar();
   var chk = (d.check && d.check.length) ? '<div class="checks"><b>確認すること</b><ul>' + d.check.map(function(c){ return '<li>' + esc(c) + '</li>'; }).join('') + '</ul></div>' : '';
-  var laterBtn = d.later ? '<button class="btn sec" onclick="askLater()">まだ受けていない（あとで撮る）</button>' : '';
+  var laterBtn = d.later ? '<button class="btn sec" onclick="askLater()">' + (d.company ? 'まだもらっていない（あとで撮る）' : 'まだ受けていない（あとで撮る）') + '</button>' : '';
   view.innerHTML =
     '<h1>' + esc(d.name) + (page > 1 ? '<br><span class="sub">（' + page + '枚目）</span>' : '') + '</h1>' +
     '<div class="pic">' + icon(d.icon) + '</div>' + chk +
@@ -721,7 +724,64 @@ function send(tries) {
     view.innerHTML = '<h1>アップロードできませんでした</h1><p>電波のよいところで、もう一度おしてください。</p><button class="btn main" onclick="send()">もう一度アップロード</button><button class="btn sec" onclick="showDoc()">撮り直す</button>';
   });
 }
+
+// ===== 契約情報（チェックリストの「1. ドライバー情報」）=====
+var INFO_FIELDS = [
+  { k: 'start', label: '稼働開始予定日', type: 'date' },
+  { k: 'days', label: '稼働希望日数', type: 'text', ph: '例：週5日' },
+  { k: 'bonus', label: 'ハッピーボーナス（7ヶ月目に10万円・リース料初月無料）', type: 'choice', opts: ['有り', '無し'] },
+  { k: 'nini', label: '車両 任意保険', type: 'choice', opts: ['弊社', 'ご自身で加入'] },
+  { k: 'kamotsu', label: '貨物保険', type: 'choice', opts: ['弊社', '佐川アドバンス', 'ご自身で加入'] },
+  { k: 'itaku', label: '委託先（Amazon、佐川など）', type: 'text', ph: '例：佐川急便 ◯◯営業所' },
+  { k: 'uniform', label: '制服のサイズ（佐川SPの場合）', type: 'text', ph: '例：L', sagawa: true },
+  { k: 'minpay', label: '最低保証（佐川SPの場合）', type: 'choice', opts: ['あり', 'なし'], sagawa: true }
+];
+function showInfo(first) {
+  setBar();
+  var inf = S.info || {};
+  var html = '<h1>' + esc(S.name) + 'さんの契約情報</h1><p class="sub">契約書類チェックリストの「ドライバー情報」に入ります。わかるところだけで大丈夫です。</p><div class="card">';
+  INFO_FIELDS.forEach(function(f) {
+    html += '<div class="fld" id="row_' + f.k + '"' + (f.sagawa && !/佐川/.test(inf.itaku || '') ? ' style="display:none"' : '') + '><label>' + esc(f.label) + '</label><div class="frow">';
+    if (f.type === 'choice') html += '<div class="chips2">' + f.opts.map(function(o){ return '<button type="button" class="opt' + (inf[f.k] === o ? ' on' : '') + '" onclick="pickOpt(\'' + f.k + '\',this,\'' + o + '\')">' + esc(o) + '</button>'; }).join('') + '<input type="hidden" id="i_' + f.k + '" value="' + esc(inf[f.k] || '') + '"></div>';
+    else if (f.type === 'date') html += '<input type="date" id="i_' + f.k + '" value="' + toInputDate(inf[f.k]) + '">';
+    else html += '<input id="i_' + f.k + '" value="' + esc(inf[f.k] || '') + '" placeholder="' + esc(f.ph || '') + '"' + (f.k === 'itaku' ? ' oninput="toggleSagawa()"' : '') + '>';
+    html += '</div></div>';
+  });
+  html += '</div><button class="btn main" onclick="saveInfo(' + (first ? 'true' : 'false') + ')">' + (first ? '保存して書類を撮る' : '保存する') + '</button>';
+  if (first) html += '<button class="btn ghost" onclick="goNext()">あとで入れる（書類を撮る）</button>';
+  else html += '<button class="btn ghost" onclick="showList(false)">もどる</button>';
+  view.innerHTML = html;
+  window.scrollTo(0, 0);
+}
+function pickOpt(k, btn, v) {
+  var el = document.getElementById('i_' + k); var same = el.value === v; el.value = same ? '' : v;
+  [].forEach.call(btn.parentNode.querySelectorAll('.opt'), function(b){ b.classList.remove('on'); });
+  if (!same) btn.classList.add('on');
+}
+function toggleSagawa() { var sg = /佐川/.test(document.getElementById('i_itaku').value); ['uniform', 'minpay'].forEach(function(k){ var r = document.getElementById('row_' + k); if (r) r.style.display = sg ? '' : 'none'; }); }
+function saveInfo(first) {
+  var info = {};
+  INFO_FIELDS.forEach(function(f){ var el = document.getElementById('i_' + f.k); if (el) info[f.k] = f.type === 'date' ? toSheetDate(el.value) : el.value.trim(); });
+  loading('保存しています…');
+  run('setInfo', [TOKEN, info], function(r) {
+    S.info = S.info || {}; Object.keys(info).forEach(function(k){ S.info[k] = info[k]; });
+    if (r && r.checklist) S.checklist = r.checklist;
+    steps = needSteps(); setBar();
+    if (first) goNext(); else showList(false);
+  });
+}
+function markTask(k) {
+  var v = (S.info && S.info[k] === '済み') ? '' : '済み';
+  var o = {}; o[k] = v; S.info = S.info || {}; S.info[k] = v;
+  run('setInfo', [TOKEN, o], function(r){ if (r && r.checklist) S.checklist = r.checklist; });
+  showList(false);
+}
 function askLater() {
+  if (steps[cur] && steps[cur].company) {
+    view.innerHTML = '<h1>あとで撮る</h1><div class="note"><p>サインをもらったら、応募者の一覧からこの方を選んで撮ってください。</p></div>' +
+      '<button class="btn main" onclick="laterOk()">つぎへ</button><button class="btn sec" onclick="showDoc()">もどる（いま撮る）</button>';
+    return;
+  }
   view.innerHTML = '<h1>あとで撮る</h1>' +
     '<div class="note"><p><b>健康診断・適性診断・安全管理者講習の3つがそろわないと、お仕事を始められません。</b></p><p>このことを、応募者にお伝えください。</p></div>' +
     '<p>受けたら、応募者の一覧からこの方を選んで、いつでも追加できます。</p>' +
@@ -743,6 +803,15 @@ function showList(resume) {
   if (laterIdx.length) html += '<button class="btn sec" onclick="cur=' + laterIdx[0] + ';page=1;showDoc()">「あとで」にした書類を撮る</button>';
   if (todo < 0) html += '<button class="btn main" onclick="showFinish()">さいごの画面へ</button>';
   html += '<button class="btn ghost" onclick="pickRedo()">撮り直す・追加する書類をえらぶ</button>';
+  var inf = S.info || {};
+  html += '<h2>契約情報</h2><div class="card" style="font-size:14px">' +
+    [['稼働開始', inf.start], ['希望日数', inf.days], ['ハッピーボーナス', inf.bonus], ['任意保険', inf.nini], ['貨物保険', inf.kamotsu], ['委託先', inf.itaku]].map(function(p){ return '<div><span class="sub" style="font-size:12px">' + p[0] + '</span>　' + esc(p[1] || '—') + '</div>'; }).join('') +
+    '<button class="btn sec" style="margin-top:10px" onclick="showInfo(false)">契約情報を入れる・直す</button></div>';
+  html += '<h2>その他必須業務</h2><div class="card">' +
+    '<button class="btn ' + (inf.line === '済み' ? 'main' : 'sec') + '" onclick="markTask(\'line\')">' + (inf.line === '済み' ? '✓ ' : '') + 'LINE＠のメッセージで名前を送信' + (inf.line === '済み' ? '（済み）' : '') + '</button>' +
+    '<button class="btn ' + (inf.tmpl === '済み' ? 'main' : 'sec') + '" onclick="markTask(\'tmpl\')">' + (inf.tmpl === '済み' ? '✓ ' : '') + '新規契約DR情報テンプレート共有' + (inf.tmpl === '済み' ? '（済み）' : '') + '</button></div>';
+  if (S.checklist) html += '<a class="btn main" href="' + esc(S.checklist) + '" target="_blank" rel="noopener">📋 契約書類チェックリストを開く</a>';
+  else html += '<p class="sub center">契約書類チェックリストは、このあと自動で作られます。</p>';
   html += '<button class="btn ghost" onclick="askCar()">車（持込・リース）を変える</button>';
   view.innerHTML = html;
 }
@@ -757,7 +826,7 @@ function showFinish() {
   setBar();
   run('finish', [TOKEN], function(){});
   var missing = steps.filter(function(d){ return S.done.indexOf(d.key) < 0; });
-  var three = missing.filter(function(d){ return d.later; });
+  var three = missing.filter(function(d){ return d.later && !d.company && /kenko|tekisei|koshu/.test(d.key); });
   var html = '';
   if (!missing.length) html += '<div class="big-check">✓</div><h1 class="center">書類はぜんぶアップロードしました</h1>';
   else {
