@@ -52,6 +52,14 @@
   .hide { display:none !important; }
   input[type=file] { display:none; }
   .big-check { font-size:64px; text-align:center; color:var(--g); line-height:1; margin:8px 0; }
+  .fld { margin:10px 0; }
+  .fld label { display:block; font-size:16px; color:var(--sub); margin-bottom:4px; }
+  .frow { display:flex; gap:8px; align-items:stretch; }
+  .frow input, .frow select, .frow textarea { flex:1; min-width:0; font-size:19px; padding:12px; border-radius:12px; border:2px solid var(--line); font-family:inherit; background:#fff; color:var(--ink); }
+  .mic { flex:0 0 56px; border:2px solid var(--line); background:#fff; border-radius:12px; font-size:24px; cursor:pointer; }
+  .mic.on { background:var(--warnbg); border-color:var(--warn); animation:pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity:.55; } }
+  .saved { font-size:14px; margin-left:6px; } .saved.ok { color:var(--g); } .saved.ng { color:var(--warn); }
   #qr { display:flex; justify-content:center; margin:14px 0; }
   #qr img, #qr canvas { width:240px !important; height:240px !important; }
 </style>
@@ -101,9 +109,12 @@ var OUT = /年齢制限|辞退|音信不通|空き無し|応募課金|契約/;
 function isHired(x) { return /^採用/.test(x.hire) || !!x.token; }
 function isRejected(x) { return /不採用/.test(x.hire); }
 var RECENT_DAYS = 45; // 採用候補は、応募日がこの日数以内の人だけ
+var NEW_DAYS = 7;     // いつもの一覧に出す「未対応」は、応募日がこの日数以内の人
 function daysAgo(s) { var m = String(s || '').match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/); if (!m) return 9999; return Math.floor((Date.now() - new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime()) / 86400000); }
 function isCand(x) { return !isHired(x) && !isRejected(x) && !OUT.test(x.state) && daysAgo(x.asked) <= RECENT_DAYS; }
 function talked(x) { return !!x.interview || /検討中|返事待ち|案件探し/.test(x.state); }
+// まだ対応していない人：シートに入力されただけ（連絡状態が空かSMS送信済みで、面談の内容もまだ）
+function untouched(x) { return (!x.state || /^SMS送信済み$/.test(x.state)) && !x.interview && !x.area && !x.job && !x.exp && !x.prev && !x.other && !x.first; }
 function dkey(s) { var m = String(s || '').match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/); return m ? Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]) : 0; }
 
 var ON_HOME = false;
@@ -140,7 +151,7 @@ function renderHome(updating) {
   var cand = items.filter(isCand), hired = items.filter(isHired), rej = items.filter(isRejected);
   var sortNew = function(a, b){ return dkey(b.asked) - dkey(a.asked) || Number(b.no) - Number(a.no); };
   var tabs = '<div style="display:flex;gap:8px;margin:6px 0 4px">' +
-    '<button class="btn ' + (MODE === 'cand' ? 'main' : 'sec') + '" style="margin:0;font-size:18px;padding:14px 6px" onclick="setMode(\'cand\')">採用候補<br><span style="font-size:15px">' + cand.length + '人</span></button>' +
+    '<button class="btn ' + (MODE === 'cand' ? 'main' : 'sec') + '" style="margin:0;font-size:18px;padding:14px 6px" onclick="setMode(\'cand\')">未対応<br><span style="font-size:15px">' + cand.filter(function(x){ return untouched(x) && daysAgo(x.asked) <= NEW_DAYS; }).length + '人</span></button>' +
     '<button class="btn ' + (MODE === 'hired' ? 'main' : 'sec') + '" style="margin:0;font-size:18px;padding:14px 6px" onclick="setMode(\'hired\')">採用した人<br><span style="font-size:15px">書類 ' + hired.length + '人</span></button></div>';
   var html = '<p class="sub" style="margin:4px 0" id="homeMark">' + esc(LIST.staff) + 'さん<span id="upd" style="font-size:14px">' + (updating ? '　最新の一覧を読み込み中…' : '') + '</span></p>' + tabs;
   if (MODE === 'hired') {
@@ -153,13 +164,15 @@ function renderHome(updating) {
     if (!rej.length) html += '<p class="sub">いません。</p>';
     html += '<button class="btn ghost" onclick="setMode(\'cand\')">採用候補にもどる</button>';
   } else {
-    var a = cand.filter(talked).sort(sortNew), b = cand.filter(function(x){ return !talked(x); }).sort(sortNew);
-    html += '<h1>採用候補</h1><p class="sub">応募から'+RECENT_DAYS+'日以内の人です。名前を押すと、くわしい情報が出ます。そこで「採用」「不採用」を決められます。</p>';
-    html += '<h2>面談した・検討中（' + a.length + '人）</h2>';
+    var un = cand.filter(untouched).sort(sortNew), b = cand.filter(function(x){ return !untouched(x); }).sort(sortNew);
+    var a = un.filter(function(x){ return daysAgo(x.asked) <= NEW_DAYS; }), old = un.filter(function(x){ return daysAgo(x.asked) > NEW_DAYS; });
+    html += '<h1>まだ対応していない人（' + a.length + '人）</h1><p class="sub">応募から' + NEW_DAYS + '日以内で、シートに入力されただけの人です。名前を押すと、くわしい情報・電話・SMS・面談の内容の入力ができます。</p>';
     a.forEach(function(x){ html += personBtn(x, 'showDetail'); });
     if (!a.length) html += '<p class="sub">いません。</p>';
-    if (window._openB) { html += '<h2>これから面談（' + b.length + '人）</h2>'; b.forEach(function(x){ html += personBtn(x, 'showDetail'); }); html += '<button class="btn ghost" onclick="window._openB=false;renderHome()">「これから面談」をとじる</button>'; }
-    else html += '<button class="btn sec" onclick="window._openB=true;renderHome()">これから面談の人も見る（' + b.length + '人）</button>';
+    if (window._openOld) { html += '<h2>' + (NEW_DAYS + 1) + '日以上前の未対応（' + old.length + '人）</h2>'; old.forEach(function(x){ html += personBtn(x, 'showDetail'); }); html += '<button class="btn ghost" onclick="window._openOld=false;renderHome()">とじる</button>'; }
+    else if (old.length) html += '<button class="btn sec" onclick="window._openOld=true;renderHome()">' + (NEW_DAYS + 1) + '日以上前の未対応も見る（' + old.length + '人）</button>';
+    if (window._openB) { html += '<h2>対応中の人（検討中など・' + b.length + '人）</h2>'; b.forEach(function(x){ html += personBtn(x, 'showDetail'); }); html += '<button class="btn ghost" onclick="window._openB=false;renderHome()">「対応中の人」をとじる</button>'; }
+    else html += '<button class="btn sec" onclick="window._openB=true;renderHome()">対応中の人（検討中など）も見る（' + b.length + '人）</button>';
     html += '<input class="search" placeholder="名前・No.でさがす" oninput="searchCand(this.value)"><div id="sres"></div>';
     html += '<button class="btn ghost" onclick="setMode(\'rej\')">不採用にした人を見る（' + rej.length + '人）</button>';
   }
@@ -175,16 +188,60 @@ function searchCand(q) {
   el.innerHTML = hit.length ? hit.map(function(x){ return personBtn(x, 'showDetail'); }).join('') : '<p class="sub">見つかりません。</p>';
 }
 function row(label, v) { return v ? '<li><span class="sub" style="font-size:16px;white-space:nowrap">' + label + '</span><span style="text-align:right">' + esc(v) + '</span></li>' : ''; }
+// 面談のあとに入れる欄（求人シートの見出しの名前で書く）
+var FIELDS = [
+  { k: 'state', label: '連絡状態', type: 'select', opt: '連絡状態' },
+  { k: 'interview', label: '面接日', type: 'date' },
+  { k: 'first', label: '初回出勤', type: 'text' },
+  { k: 'pay', label: '希望手取り', type: 'text' },
+  { k: 'home', label: 'お住まい', type: 'text' },
+  { k: 'area', label: '希望エリア', type: 'text' },
+  { k: 'job', label: '希望の仕事', type: 'text' },
+  { k: 'car', label: '車・保険', type: 'select', opt: '車・保険' },
+  { k: 'exp', label: 'ドライバー経験', type: 'text' },
+  { k: 'prev', label: '前職（エリアなど）', type: 'text' },
+  { k: 'other', label: 'その他', type: 'area' }
+];
+function optionsFor(x, name) { var o = LIST.options && LIST.options[x.sheet]; return (o && o[name]) || []; }
+function isIOS() { return /iPhone|iPad|iPod/.test(navigator.userAgent); }
+function smsHref(x) {
+  var tel = String(x.tel || '').replace(/\D/g, '');
+  var body = x.name + '様\n東迎商事（軽貨物配送本舗）の' + (LIST.staff || '') + 'です。\nご応募ありがとうございました。お仕事のご説明のため、お電話できるお時間を教えていただけますでしょうか。';
+  return 'sms:' + tel + (isIOS() ? '&' : '?') + 'body=' + encodeURIComponent(body);
+}
+function toSheetDate(v) { var m = String(v || '').match(/(\d{4})-(\d{2})-(\d{2})/); return m ? m[1] + '/' + Number(m[2]) + '/' + Number(m[3]) : v; }
+function toInputDate(v) { var m = String(v || '').match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/); return m ? m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2) : ''; }
+function fieldHtml(x, f) {
+  var v = x[f.k] || '', id = 'f_' + f.k, mic = '<button class="mic" type="button" onclick="listen(\'' + f.k + '\')" id="mic_' + f.k + '" aria-label="' + f.label + 'を声で入力">🎤</button>';
+  var input;
+  if (f.type === 'select') {
+    var opts = optionsFor(x, f.opt);
+    if (opts.length) {
+      if (v && opts.indexOf(v) < 0) opts = [v].concat(opts);
+      input = '<select id="' + id + '" onchange="saveField(\'' + f.k + '\')"><option value="">（えらぶ）</option>' + opts.map(function(o){ return '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>';
+      mic = '';
+    } else input = '<input id="' + id + '" value="' + esc(v) + '" onchange="saveField(\'' + f.k + '\')">';
+  } else if (f.type === 'date') {
+    input = '<input type="date" id="' + id + '" value="' + toInputDate(v) + '" onchange="saveField(\'' + f.k + '\')">';
+    mic = '<button class="mic" type="button" style="font-size:15px" onclick="setToday()">今日</button>';
+  } else if (f.type === 'area') {
+    input = '<textarea id="' + id + '" rows="3" onchange="saveField(\'' + f.k + '\')">' + esc(v) + '</textarea>';
+  } else input = '<input id="' + id + '" value="' + esc(v) + '" onchange="saveField(\'' + f.k + '\')">';
+  return '<div class="fld"><label for="' + id + '">' + f.label + ' <span class="saved" id="s_' + f.k + '"></span></label><div class="frow">' + input + mic + '</div></div>';
+}
+var CUR = null;
 function showDetail(i) {
   ON_HOME = false;
-  var x = LIST.items[i];
+  var x = LIST.items[i]; CUR = x;
   var tel = String(x.tel || '').replace(/\D/g, '');
   var html = '<h1>' + esc(x.name) + '</h1><p class="sub">' + esc(x.kana) + '　' + esc(x.label) + ' No.' + esc(x.no) + '</p>';
-  html += '<ul class="list">' + row('年齢', x.age ? x.age + '歳' : '') + row('性別', x.sex) + row('住所', (x.pref || '') + (x.city || '')) + row('お住まい', x.home) +
-    row('電話', x.tel) + row('応募媒体', x.media) + row('応募日', x.asked) + row('面接日', x.interview) + row('連絡状態', x.state) + row('面接担当', x.tanto) +
-    row('希望エリア', x.area) + row('希望の仕事', x.job) + row('車・保険', x.car) + row('ドライバー経験', x.exp) + row('前職', x.prev) + row('希望手取り', x.pay) + row('初回出勤', x.first) + '</ul>';
-  if (x.other) html += '<div class="card"><b class="sub">その他</b><p>' + esc(x.other) + '</p></div>';
-  if (tel) html += '<a class="btn sec" href="tel:' + tel + '">電話をかける</a>';
+  html += '<ul class="list">' + row('年齢', x.age ? x.age + '歳' : '') + row('性別', x.sex) + row('住所', (x.pref || '') + (x.city || '')) +
+    row('電話', x.tel) + row('応募媒体', x.media) + row('応募日', x.asked) + row('面接担当', x.tanto) + '</ul>';
+  if (tel) html += '<div style="display:flex;gap:8px"><a class="btn main" style="margin:6px 0" href="tel:' + tel + '">📞 電話</a><a class="btn sec" style="margin:6px 0" href="' + smsHref(x) + '">💬 SMS</a></div>';
+  html += '<h2>面談の内容</h2><p class="sub">入れたら自動で保存します。🎤を押すと声で入力できます。</p>';
+  html += '<button class="btn sec" onclick="listen(\'other\')">🎤 まとめて話す（「その他」に入ります）</button>';
+  FIELDS.forEach(function(f){ html += fieldHtml(x, f); });
+  html += '<h2>結果</h2>';
   if (isRejected(x)) {
     html += '<button class="btn sec" onclick="decide(' + i + ',\'\')">採用候補にもどす</button>';
   } else if (/^採用/.test(x.hire)) {
@@ -196,6 +253,44 @@ function showDetail(i) {
   html += '<button class="btn ghost" onclick="renderHome()">一覧にもどる</button>';
   view.innerHTML = html;
   window.scrollTo(0, 0);
+}
+function setToday() { var d = new Date(); var el = document.getElementById('f_interview'); el.value = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); saveField('interview'); }
+function saveField(k) {
+  var x = CUR; if (!x) return;
+  var el = document.getElementById('f_' + k); if (!el) return;
+  var v = k === 'interview' ? toSheetDate(el.value) : el.value.trim();
+  var mark = document.getElementById('s_' + k);
+  if (mark) { mark.textContent = '保存中…'; mark.className = 'saved'; }
+  var f = {}; f[k] = v;
+  run('setFields', [STAFF, x.sheet, x.tab, x.row, x.no, x.name, f], function(r) {
+    if (r && r.ok && r.done && r.done.indexOf(k) >= 0) {
+      x[k] = v; try { localStorage.setItem(cacheKey(), JSON.stringify(LIST)); } catch (e) {}
+      if (mark) { mark.textContent = '✓ 保存しました'; mark.className = 'saved ok'; }
+    } else if (mark) { mark.textContent = '保存できませんでした'; mark.className = 'saved ng'; }
+  }, function() { if (mark) { mark.textContent = '保存できませんでした（電波を確認）'; mark.className = 'saved ng'; } });
+}
+// 声で入力（iPhoneのSafariなど、対応している端末だけ。だめならキーボードのマイクを案内）
+var REC = null;
+function listen(k) {
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var el = document.getElementById('f_' + k);
+  if (!SR) { if (el) el.focus(); alert('この画面では声の入力ボタンが使えません。キーボードのマイクのボタンを押して話してください。'); return; }
+  if (REC) { try { REC.stop(); } catch (e) {} REC = null; return; }
+  var btn = document.getElementById('mic_' + k);
+  var before = el ? el.value : '';
+  var rec = new SR(); REC = rec;
+  rec.lang = 'ja-JP'; rec.interimResults = true; rec.continuous = (k === 'other');
+  var finalText = '';
+  if (btn) btn.classList.add('on');
+  var mark = document.getElementById('s_' + k); if (mark) { mark.textContent = '聞いています…（もう一度🎤で止める）'; mark.className = 'saved'; }
+  rec.onresult = function(ev) {
+    var interim = '';
+    for (var i = ev.resultIndex; i < ev.results.length; i++) { if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript; else interim += ev.results[i][0].transcript; }
+    if (el) el.value = (before && k === 'other' ? before + '　' : (k === 'other' ? before : '')) + finalText + interim;
+  };
+  rec.onerror = function() { if (mark) { mark.textContent = '聞き取れませんでした'; mark.className = 'saved ng'; } };
+  rec.onend = function() { REC = null; if (btn) btn.classList.remove('on'); if (finalText) saveField(k); else if (mark && mark.textContent.indexOf('聞いています') === 0) mark.textContent = ''; };
+  try { rec.start(); } catch (e) { REC = null; if (btn) btn.classList.remove('on'); }
 }
 function askReject(i) {
   var x = LIST.items[i];
