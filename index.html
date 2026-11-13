@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="採用管理">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#127a3c">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
 <title>応募者の採用と書類</title>
 <style>
   :root { --g:#127a3c; --gd:#0b5a2b; --g2:#1f9d55; --gl:#e7f5ec; --bg:#f3f5f4; --card:#fff; --ink:#15181b; --sub:#6b7178; --line:#e3e7e5;
@@ -149,7 +156,7 @@ function showError() {
     '<button class="btn main" onclick="location.reload()">もう一度ためす</button>';
 }
 function loading(msg) { view.innerHTML = '<div class="spin"></div><p class="center sub">' + (msg || '読み込んでいます…') + '</p>'; }
-function setUrl(params) { history.replaceState(null, '', location.pathname + (params ? '?' + params : '')); }
+function setUrl(params) { var q = []; if (STAFF) q.push('staff=' + encodeURIComponent(STAFF)); if (params) q.push(params); history.replaceState(null, '', location.pathname + (q.length ? '?' + q.join('&') : '')); }
 
 // ===== 担当者の一覧 =====
 // 採用候補：採用可否が空で、辞退・年齢制限などでない人。押すと詳しい情報と「採用」「不採用」
@@ -792,6 +799,9 @@ function askSms() {
 function smsOk() { run('formChoice', [TOKEN, 'sms'], function(){}); S.formChoice = 'SMSで送る（あとで送ります）'; showFinish(); }
 
 // ===== はじめ =====
+// ホーム画面のアイコンから開いたときは、いつも一覧から始める
+var STANDALONE = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
+if (TOKEN && STAFF && STANDALONE) { TOKEN = ''; setUrl(''); }
 if (TOKEN) startPerson();
 else if (STAFF) showStaffList();
 else view.innerHTML = '<h1>このページは担当者用です</h1><p>担当者用のリンクから開いてください。</p>';
