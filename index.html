@@ -161,6 +161,7 @@ function startPerson() {
   run('getState', [TOKEN], function(s) {
     if (!s || !s.ok) { view.innerHTML = '<h1>この応募者が見つかりません</h1>' + (STAFF ? '<button class="btn main" onclick="backToList()">応募者の一覧へ</button>' : '<p>担当者用のリンクから開いてください。</p>'); return; }
     S = s;
+    if (!S.lineUrl) S.lineUrl = 'https://line.me/R/ti/p/@284vqmzj'; // 軽貨物配送本舗DR連絡網
     if (S.car) { steps = needSteps(); setBar(); showList(true); } else { setBar(); askCar(); }
   });
 }
