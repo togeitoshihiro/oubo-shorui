@@ -19,8 +19,9 @@
   html, body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif; }
   body { font-size:16px; line-height:1.55; -webkit-text-size-adjust:100%; }
   .wrap { max-width:560px; margin:0 auto; padding:0 14px 48px; }
-  .appbar { position:sticky; top:0; z-index:6; margin:0 -14px 10px; padding:12px 16px 12px; background:linear-gradient(135deg, var(--gd), var(--g2)); color:#fff; display:flex; align-items:center; justify-content:space-between; box-shadow:0 2px 10px rgba(0,0,0,.12); }
-  .appbar .ttl { font-weight:800; font-size:17px; letter-spacing:.02em; }
+  .appbar { z-index:6; margin:0 -14px 10px; padding:12px 16px 12px; background:linear-gradient(135deg, var(--gd), var(--g2)); color:#fff; display:flex; align-items:center; justify-content:space-between; box-shadow:0 2px 10px rgba(0,0,0,.12); }
+  .appbar .ttl { font-weight:800; font-size:17px; letter-spacing:.02em; cursor:pointer; }
+  .appbar.hide { display:none; }
   .appbar .who2 { font-size:13px; opacity:.9; }
   .appbar button { background:rgba(255,255,255,.18); color:#fff; border:0; border-radius:999px; padding:6px 12px; font-size:13px; font-family:inherit; cursor:pointer; }
   .seg { display:flex; background:#e4e9e6; border-radius:12px; padding:4px; gap:4px; margin:4px 0 12px; }
@@ -28,7 +29,7 @@
   .seg button.on { background:#fff; color:var(--ink); box-shadow:0 1px 4px rgba(0,0,0,.1); }
   .seg .n { display:inline-block; min-width:20px; padding:0 6px; margin-left:4px; border-radius:999px; background:#d3dbd7; color:var(--ink); font-size:12px; }
   .seg button.on .n { background:var(--g); color:#fff; }
-  .bar { position:sticky; top:0; background:var(--bg); padding:10px 0 8px; z-index:5; }
+  .bar { position:relative; background:var(--bg); padding:10px 0 8px; z-index:5; }
   .who { font-size:14px; color:var(--sub); display:flex; justify-content:space-between; gap:8px; }
   .who a { color:var(--g); text-decoration:none; font-weight:700; }
   .prog { height:8px; background:#e1e7e3; border-radius:6px; overflow:hidden; margin-top:6px; }
@@ -128,17 +129,18 @@
 </head>
 <body>
 <div class="wrap">
+  <div id="topw" style="position:sticky;top:0;z-index:7"><div class="appbar hide" id="gbar"></div>
   <div class="bar hide" id="bar">
     <div class="who"><span id="whoName"></span><a href="#" id="toList" class="hide" onclick="backToList();return false;">← 応募者の一覧へ</a></div>
     <div class="prog"><i id="progi"></i></div><div class="count" id="count"></div>
-  </div>
+  </div></div>
   <div id="view"><div class="spin"></div><p class="center sub">読み込んでいます…</p></div>
 </div>
 <input type="file" id="cam" accept="image/*" capture="environment">
 <input type="file" id="pick" accept="image/*">
 
 <script>
-var APP_VERSION = '2026-11-13-22';
+var APP_VERSION = '2026-11-13-23';
 var API = 'https://script.google.com/macros/s/AKfycbxXqXGMgSnxYJre2Lpq8D7lV5ksrwsQl8tC4yrOCl5EN2Z_IRVb45DH_fQrS73eaLnGUw/exec';
 var Q = new URLSearchParams(location.search);
 var TOKEN = (Q.get('t') || '').trim();
@@ -282,7 +284,8 @@ function renderHome(updating) {
   var un = cand.filter(untouched).sort(sortNew);
   var a = un.filter(function(x){ return x.test || daysAgo(x.asked) <= NEW_DAYS; }), old = un.filter(function(x){ return !x.test && daysAgo(x.asked) > NEW_DAYS; });
   var done = cand.filter(function(x){ return !untouched(x); }).sort(sortNew);
-  var html = '<div class="appbar"><div><div class="ttl">採用管理</div><div class="who2" id="homeMark">' + esc(staffLabel(LIST.staff)) + '<span id="upd">' + (updating ? '・更新中…' : '') + '</span></div></div><button onclick="showStaffList(true)">⟳ 更新</button></div>';
+  drawTop(updating);
+  var html = '';
   html += '<div class="seg">' +
     '<button class="' + (MODE === 'cand' ? 'on' : '') + '" onclick="setMode(\'cand\')">未対応<span class="n">' + a.length + '</span></button>' +
     '<button class="' + (MODE === 'done' ? 'on' : '') + '" onclick="setMode(\'done\')">対応済<span class="n">' + done.length + '</span></button>' +
@@ -371,7 +374,8 @@ function showDetail(i) {
   ON_HOME = false;
   var x = LIST.items[i]; CUR = x;
   var tel = String(x.tel || '').replace(/\D/g, '');
-  var html = '<div class="appbar"><button onclick="renderHome()">‹ 一覧</button><div class="ttl">応募者</div><span style="width:52px"></span></div>';
+  drawTop();
+  var html = '';
   if (x.test) html += '<button class="btn danger" onclick="resetTest()">↺ テストをリセット（最初の状態にもどす）</button>';
   if (x.test) html += '<div class="note"><b>テスト用の応募者です。</b>入力・採用・不採用を押しても、求人シートには書きません（書類とチェックリストは練習用の記録に入ります）。電話番号は「00000000000」なのでつながりません。SMSは送信を押さなければ送られません。 　<a href="#" onclick="hideTest();return false;" style="color:var(--g);font-weight:700">テスト用を一覧から消す</a></div>';
   html += '<div class="card"><div class="hero"><div class="av">' + esc(String(x.name).charAt(0)) + '</div><div><div class="nm">' + esc(x.name) + '</div><div class="sub" style="font-size:13px">' + esc(x.kana) + ' · ' + esc(x.label) + ' No.' + esc(x.no) + '</div></div></div>' +
@@ -632,7 +636,22 @@ function openPerson(i) {
 function backToList() { TOKEN = ''; S = null; steps = []; setUrl(''); MODE = 'hired'; showStaffList(true); }
 
 // ===== 1人分の書類 =====
+// ===== いつも上に出すヘッダー（採用管理をタップで最初の画面へ）=====
+function drawTop(updating) {
+  var g = document.getElementById('gbar');
+  if (!STAFF) { g.classList.add('hide'); return; }
+  var who = LIST && LIST.staff ? staffLabel(LIST.staff) : '';
+  g.innerHTML = '<div><div class="ttl" onclick="goHome()">採用管理</div><div class="who2" id="homeMark">' + esc(who) + '<span id="upd">' + (updating ? '・更新中…' : '') + '</span></div></div>' +
+    (ON_HOME ? '<button onclick="showStaffList(true)">⟳ 更新</button>' : '<button onclick="goHome()">‹ 一覧</button>');
+  g.classList.remove('hide');
+}
+function goHome() {
+  TOKEN = ''; S = null; steps = []; setUrl('');
+  document.getElementById('bar').classList.add('hide');
+  if (LIST) { renderHome(); window.scrollTo(0, 0); } else showStaffList(true);
+}
 function setBar() {
+  drawTop();
   var bar = document.getElementById('bar');
   bar.classList.remove('hide');
   document.getElementById('whoName').textContent = S ? S.name + 'さん' + (S.no ? '（' + S.no + '）' : '') : '';
