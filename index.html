@@ -233,7 +233,7 @@ function resetTest(back) {
   loading('リセットしています…');
   run('resetTest', [STAFF], function() {
     S = null; steps = []; TOKEN = ''; setUrl('');
-    view.innerHTML = '<div class="big-check">↺</div><h1 class="center">テストをリセットしました</h1><p class="center sub">最初の状態から、もう一度練習できます。</p>' +
+    view.innerHTML = '<div class="big-check">✓</div><h1 class="center">テストをリセットしました</h1><p class="center sub">最初の状態から、もう一度練習できます。</p>' +
       '<button class="btn main" onclick="' + (j >= 0 ? 'showDetail(' + j + ')' : 'showStaffList(true)') + '">テスト　花子さんを開く</button><button class="btn ghost" onclick="showStaffList(true)">一覧にもどる</button>';
   }, function() { view.innerHTML = '<h1>リセットできませんでした</h1><p>電波のよいところで、もう一度ためしてください。</p><button class="btn main" onclick="showStaffList(true)">一覧にもどる</button>'; });
 }
@@ -265,14 +265,14 @@ function personBtn(x, onclick) {
   if (isRejected(x)) chips += '<span class="tag ng">不採用</span>';
   if (x.token) chips += '<span class="tag doing">書類 ' + x.done + '枚</span>';
   var nr = noReachList(x);
-  if (nr.length) chips += '<span class="tag ng">📵 つながらず ' + nr.length + '回</span>';
+  if (nr.length) chips += '<span class="tag ng">つながらず ' + nr.length + '回</span>';
   if (x.state && !/^SMS送信済み$/.test(x.state)) chips += '<span class="tag blue">' + esc(x.state) + '</span>';
   if (x.interview) chips += '<span class="tag">面接 ' + esc(String(x.interview).replace(/^\d{4}\//, '')) + '</span>';
   var place = (x.pref || '') + (x.city || '');
   var last = lastNote(x);
   return '<button class="person" onclick="' + onclick + '(' + x.i + ')"><div class="av">' + esc(String(x.name).charAt(0)) + '</div><div class="body">' +
     '<div class="nm">' + esc(x.name) + '</div>' +
-    (fmtTel(x.tel) ? '<div class="meta telno">☎ ' + esc(fmtTel(x.tel)) + '</div>' : '') +
+    (fmtTel(x.tel) ? '<div class="meta telno">' + esc(fmtTel(x.tel)) + '</div>' : '') +
     '<div class="meta">' + [x.age ? x.age + '歳' : '', place, x.asked ? '応募 ' + String(x.asked).replace(/^\d{4}\//, '') : '', x.label + ' No.' + x.no].filter(String).map(esc).join(' · ') + '</div>' +
     (smsLine(x) ? '<div class="meta">' + esc(smsLine(x)) + '</div>' : '') +
     (chips ? '<div class="chips">' + chips + '</div>' : '') + (last && !untouched(x) ? '<div class="last">' + esc(last) + '</div>' : '') +
@@ -311,7 +311,7 @@ function renderHome(updating) {
   } else {
     html += '<p class="sub">応募から' + NEW_DAYS + '日以内で、まだ何も対応していない人です。</p>';
     a.forEach(function(x){ html += personBtn(x, 'showDetail'); });
-    if (!a.length) html += '<div class="card center sub">🎉 未対応の人はいません</div>';
+    if (!a.length) html += '<div class="card center sub">未対応の人はいません</div>';
     if (window._openOld) { html += '<h2>' + (NEW_DAYS + 1) + '日以上前の未対応（' + old.length + '人）</h2>'; old.forEach(function(x){ html += personBtn(x, 'showDetail'); }); html += '<button class="btn ghost" onclick="window._openOld=false;renderHome()">とじる</button>'; }
     else if (old.length) html += '<button class="btn ghost" onclick="window._openOld=true;renderHome()">' + (NEW_DAYS + 1) + '日以上前の未対応（' + old.length + '人）›</button>';
   }
@@ -385,7 +385,7 @@ function showDetail(i) {
   var tel = String(x.tel || '').replace(/\D/g, '');
   drawTop();
   var html = '';
-  if (x.test) html += '<button class="btn danger" onclick="resetTest()">↺ テストをリセット（最初の状態にもどす）</button>';
+  if (x.test) html += '<button class="btn danger" onclick="resetTest()">テストをリセット（最初の状態にもどす）</button>';
   if (x.test) html += '<div class="note"><b>テスト用の応募者です。</b>入力・採用・不採用を押しても、求人シートには書きません（書類とチェックリストは練習用の記録に入ります）。電話番号は「00000000000」なのでつながりません。SMSは送信を押さなければ送られません。 　<a href="#" onclick="hideTest();return false;" style="color:var(--g);font-weight:700">テスト用を一覧から消す</a></div>';
   html += '<div class="card"><div class="hero"><div class="av">' + esc(String(x.name).charAt(0)) + '</div><div><div class="nm">' + esc(x.name) + '</div><div class="sub" style="font-size:13px">' + esc(x.kana) + ' · ' + esc(x.label) + ' No.' + esc(x.no) + '</div></div></div>' +
     '<div class="grid">' + [['年齢', x.age ? x.age + '歳' : ''], ['性別', x.sex], ['住所', (x.pref || '') + (x.city || '')], ['応募', [x.media, x.asked].filter(String).join(' · ')], ['電話', x.tel], ['担当', x.tanto]].map(function(p){ return '<div><span>' + p[0] + '</span>' + esc(p[1] || '—') + '</div>'; }).join('') + '</div>';
@@ -399,7 +399,7 @@ function showDetail(i) {
   html += '<button class="btn main" onclick="saveAll()">入力した内容をシートに保存</button><p class="sub center" id="allSaved"></p></div>';
   html += '<h2>結果</h2>';
   if (!isRejected(x) && !/^採用/.test(x.hire)) {
-    html += '<div class="row2"><button class="btn sec" onclick="noReach()">📵 電話つながらず</button><button class="btn sec" onclick="holdOn()">⏸ 保留（検討中）</button></div>';
+    html += '<div class="row2"><button class="btn sec" onclick="noReach()">電話つながらず</button><button class="btn sec" onclick="holdOn()">保留（検討中）</button></div>';
   }
   if (isRejected(x)) {
     html += '<button class="btn sec" onclick="decide(' + i + ',\'\')">候補にもどす</button>';
@@ -460,14 +460,14 @@ function noReach() {
   var base = f.other !== undefined ? f.other : (x.other || '');
   f.other = (base ? base + '\n' : '') + todayMD() + ' 電話つながらず（' + staffLabel(LIST.staff) + '）';
   if (el) el.value = f.other;
-  writeFields(x, f, function(ok) { if (ok) { view.innerHTML = '<div class="big-check">📵</div><h1 class="center">「電話つながらず」を記録しました</h1><p class="center sub">' + esc(x.name) + 'さんは「対応済」に入りました。' + (x.test ? '（テストなのでシートには書きません）' : '') + '</p>' +
+  writeFields(x, f, function(ok) { if (ok) { view.innerHTML = '<div class="big-check">✓</div><h1 class="center">「電話つながらず」を記録しました</h1><p class="center sub">' + esc(x.name) + 'さんは「対応済」に入りました。' + (x.test ? '（テストなのでシートには書きません）' : '') + '</p>' +
     (String(x.tel || '').replace(/\D/g, '') ? '<a class="btn sec" style="display:flex;align-items:center;justify-content:center;gap:8px;color:#2459c6" href="' + smsHref(x) + '" onclick="smsTapped(' + x.i + ')"><span class="ai" style="width:18px;height:18px">' + SMS_SVG + '</span>SMSを送る</a>' : '') + '<button class="btn main" onclick="renderHome()">一覧にもどる</button><button class="btn ghost" onclick="showDetail(' + x.i + ')">この人の画面にもどる</button>'; } });
 }
 function holdOn() {
   var x = CUR, f = collectFields(x);
   f.state = '検討中';
   var el = document.getElementById('f_state'); if (el) el.value = '検討中';
-  writeFields(x, f, function(ok) { if (ok) { view.innerHTML = '<div class="big-check">⏸</div><h1 class="center">保留（検討中）にしました</h1><p class="center sub">' + esc(x.name) + 'さんは「対応済」に入りました。' + (x.test ? '（テストなのでシートには書きません）' : '') + '</p><button class="btn main" onclick="renderHome()">一覧にもどる</button>'; } });
+  writeFields(x, f, function(ok) { if (ok) { view.innerHTML = '<div class="big-check">✓</div><h1 class="center">保留（検討中）にしました</h1><p class="center sub">' + esc(x.name) + 'さんは「対応済」に入りました。' + (x.test ? '（テストなのでシートには書きません）' : '') + '</p><button class="btn main" onclick="renderHome()">一覧にもどる</button>'; } });
 }
 var SMS_PENDING = null;
 function smsTapped(i) { SMS_PENDING = i; setTimeout(askSmsSent, 4000); }
@@ -858,7 +858,7 @@ function previewTmpl() {
     (miss.length ? '<div class="note"><b>まだ空の項目があります：</b>' + esc(miss.join('・')) + '</div>' : '') +
     '<div class="card" style="white-space:pre-wrap;font-size:14px;line-height:1.6">' + esc(tmplText()) + '</div>' +
     '<p class="sub">送り先：東迎商事株式会社　本部連絡網（AI秘書から送ります）' + (test ? '<br><b>テストなので、実際には送りません。</b>' : '') + '</p>' +
-    '<button class="btn main" onclick="sendTmpl()">💬 チャットワークで送る</button><button class="btn ghost" onclick="showTmpl()">直す</button>';
+    '<button class="btn main" onclick="sendTmpl()">チャットワークで送る</button><button class="btn ghost" onclick="showTmpl()">直す</button>';
   view.innerHTML = html; window.scrollTo(0, 0);
 }
 function sendTmpl() {
@@ -949,10 +949,10 @@ function showList(resume) {
   html += '<h2>その他必須業務</h2><div class="card">' +
     '<button class="btn ' + (inf.line === '済み' ? 'main' : 'sec') + '" onclick="markTask(\'line\')">' + (inf.line === '済み' ? '✓ ' : '') + 'LINE＠のメッセージで名前を送信' + (inf.line === '済み' ? '（済み）' : '') + '</button>' +
     '<button class="btn ' + (inf.tmpl === '済み' ? 'main' : 'sec') + '" onclick="showTmpl()">' + (inf.tmpl === '済み' ? '✓ ' : '') + '新規契約DR情報テンプレート共有' + (inf.tmpl === '済み' ? '（済み）' : '') + '</button></div>';
-  if (S.checklist) html += '<button class="btn main" onclick="showChecklist()">📋 契約書類チェックリストを見る</button>';
+  if (S.checklist) html += '<button class="btn main" onclick="showChecklist()">契約書類チェックリストを見る</button>';
   else html += '<p class="sub center">契約書類チェックリストは、このあと自動で作られます。</p>';
   html += '<button class="btn ghost" onclick="askCar()">車（持込・リース）を変える</button>';
-  if (S.no === '練習用') html += '<button class="btn danger" onclick="resetTest()">↺ テストをリセット（最初の状態にもどす）</button>';
+  if (S.no === '練習用') html += '<button class="btn danger" onclick="resetTest()">テストをリセット（最初の状態にもどす）</button>';
   view.innerHTML = html;
 }
 function pickRedo() {
