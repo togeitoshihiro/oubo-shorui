@@ -66,6 +66,7 @@
   .person .body { flex:1; min-width:0; }
   .person .nm { font-weight:800; font-size:16px; }
   .person .meta { font-size:12.5px; color:var(--sub); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .person .meta.telno { color:var(--g); font-weight:700; font-size:13.5px; }
   .person .last { font-size:12.5px; color:var(--ink); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity:.85; }
   .person .chev { color:#b6bdb9; font-size:20px; }
   .chips { margin-top:4px; display:flex; flex-wrap:wrap; gap:4px; }
@@ -200,6 +201,7 @@ function contactLog(x) {
 }
 function noReachList(x) { return String(x.other || '').split(/\n/).filter(function(l){ return /電話つながらず/.test(l); }).map(function(l){ return l.trim(); }); }
 function lastNote(x) { var ls = String(x.other || '').split(/\n/).map(function(l){ return l.trim(); }).filter(String); return ls.length ? ls[ls.length - 1] : ''; }
+function fmtTel(v) { var d = String(v || '').replace(/\D/g, ''); if (!d) return ''; if (d.length === 11) return d.slice(0,3) + '-' + d.slice(3,7) + '-' + d.slice(7); if (d.length === 10) return d.slice(0,2) + '-' + d.slice(2,6) + '-' + d.slice(6); return d; }
 function noReachCount(x) { return (String(x.other || '').match(/電話つながらず/g) || []).length; }
 function untouched(x) { return (!x.state || /^SMS送信済み$/.test(x.state)) && !x.interview && !x.area && !x.job && !x.exp && !x.prev && !String(x.other || '').trim() && !x.first; }
 function dkey(s) { var m = String(s || '').match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/); return m ? Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]) : 0; }
@@ -270,6 +272,7 @@ function personBtn(x, onclick) {
   var last = lastNote(x);
   return '<button class="person" onclick="' + onclick + '(' + x.i + ')"><div class="av">' + esc(String(x.name).charAt(0)) + '</div><div class="body">' +
     '<div class="nm">' + esc(x.name) + '</div>' +
+    (fmtTel(x.tel) ? '<div class="meta telno">☎ ' + esc(fmtTel(x.tel)) + '</div>' : '') +
     '<div class="meta">' + [x.age ? x.age + '歳' : '', place, x.asked ? '応募 ' + String(x.asked).replace(/^\d{4}\//, '') : '', x.label + ' No.' + x.no].filter(String).map(esc).join(' · ') + '</div>' +
     (smsLine(x) ? '<div class="meta">' + esc(smsLine(x)) + '</div>' : '') +
     (chips ? '<div class="chips">' + chips + '</div>' : '') + (last && !untouched(x) ? '<div class="last">' + esc(last) + '</div>' : '') +
