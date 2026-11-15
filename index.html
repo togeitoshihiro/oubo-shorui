@@ -141,7 +141,7 @@
 <input type="file" id="pick" accept="image/*">
 
 <script>
-var APP_VERSION = '2026-11-13-26';
+var APP_VERSION = '2026-11-15-1';
 var API = 'https://script.google.com/macros/s/AKfycbxXqXGMgSnxYJre2Lpq8D7lV5ksrwsQl8tC4yrOCl5EN2Z_IRVb45DH_fQrS73eaLnGUw/exec';
 var Q = new URLSearchParams(location.search);
 var TOKEN = (Q.get('t') || '').trim();
@@ -909,6 +909,49 @@ function showChecklist() {
     });
   }, function() { view.innerHTML = '<h1>チェックリストを出せませんでした</h1><p>電波のよいところで、もう一度ためしてください。</p>' + back; });
 }
+// その他必須業務（2026-11-15 広瀬さん：LINE連絡網・メールアドレス登録フォーム・登録番号フォームを追加）
+var MAIL_FORM_FALLBACK = 'https://docs.google.com/forms/d/e/1FAIpQLSeWuLCyeB2Z4Cow2OUJUMpS1_HlO1XNrshx_TPwa10OwmztVg/viewform';
+var TASKS = [
+  { k: 'line', label: 'DR連絡網（LINE）に登録・漢字フルネームを送信' },
+  { k: 'mailform', label: 'メールアドレス登録フォームに回答' },
+  { k: 'touroku', label: '登録番号フォームに回答' }
+];
+function taskUrl(k) { return k === 'line' ? S.lineUrl : k === 'mailform' ? (S.mailFormUrl || MAIL_FORM_FALLBACK) : S.formUrl; }
+function taskDone(k) { var inf = S.info || {}; return inf[k] === '済み' || (k === 'touroku' && /QR/.test(S.formChoice || '')); }
+function showTask(k) {
+  var t = TASKS.filter(function(x){ return x.k === k; })[0], ok = taskDone(k);
+  var how = k === 'line' ? '<p>QRコードで友だち追加してもらい、<b>LINEのメッセージで漢字のフルネーム（例：山田　太郎）</b>を送ってもらってください。</p><p class="sub">ニックネームやローマ字では誰か分からないため、必ず漢字のフルネームでお願いします。</p>'
+    : k === 'mailform' ? '<p>QRコードを読み取ってもらい、お名前とメールアドレスを入れてもらってください。</p>'
+    : '<p>QRコードを読み取ってもらい、最後まで答えてもらってください。</p><p class="sub">番号がない方も、全員に答えてもらいます。</p>';
+  view.innerHTML = '<h1>' + esc(t.label) + '</h1>' + how + '<div id="qr"></div>' +
+    '<button class="btn ' + (ok ? 'sec' : 'main') + '" onclick="setTask(\'' + k + '\',' + (ok ? 'false' : 'true') + ')">' + (ok ? '未にもどす' : '済みにする') + '</button>' +
+    '<button class="btn ghost" onclick="showList(false)">もどる</button>';
+  var url = taskUrl(k);
+  try { new QRCode(document.getElementById('qr'), { text: url, width: 480, height: 480, correctLevel: QRCode.CorrectLevel.M }); }
+  catch (e) { document.getElementById('qr').innerHTML = '<a class="btn sec" href="' + esc(url) + '" target="_blank" rel="noopener">リンクを開く</a>'; }
+}
+function setTask(k, on) {
+  var o = {}; o[k] = on ? '済み' : ''; S.info = S.info || {}; S.info[k] = o[k];
+  if (k === 'touroku') { if (on) { run('formChoice', [TOKEN, 'qr'], function(){}); S.formChoice = 'QRでその場で回答'; } else S.formChoice = ''; }
+  run('setInfo', [TOKEN, o], function(r){ if (r && r.checklist) S.checklist = r.checklist; });
+  showList(false);
+}
+function guideText() {
+  return S.name + '様\n軽貨物配送本舗の' + staffSurname(S.tanto || (LIST && LIST.staff)) + 'です。ご契約にあたり、次の3つをお願いいたします。\n\n' +
+    '1. ドライバー連絡用のLINEの登録\n' + S.lineUrl + '\n友だち追加のあと、LINEのメッセージで漢字のフルネーム（例：山田　太郎）を送ってください。\n\n' +
+    '2. メールアドレスの登録\n' + (S.mailFormUrl || MAIL_FORM_FALLBACK) + '\n\n' +
+    '3. 登録番号（インボイス）のフォーム\n' + S.formUrl + '\n番号をお持ちでない方も、最後までご回答ください。\n\nよろしくお願いいたします。';
+}
+function showGuideSms() {
+  var tel = String(S.tel || '').replace(/\D/g, '');
+  var body = guideText();
+  var href = 'sms:' + tel + (isIOS() ? '&' : '?') + 'body=' + encodeURIComponent(body);
+  view.innerHTML = '<h1>案内をSMSで送る</h1><p class="sub">ボタンを押すとメッセージアプリが開きます。内容を確かめてから送ってください。</p>' +
+    '<div class="card" style="white-space:pre-wrap;font-size:13px">' + esc(body) + '</div>' +
+    '<a class="btn main" href="' + esc(href) + '">メッセージアプリで開く</a>' +
+    '<p class="sub">応募者が答えたら、それぞれのボタンから「済みにする」を押してください。</p>' +
+    '<button class="btn ghost" onclick="showList(false)">もどる</button>';
+}
 function markTask(k) {
   var v = (S.info && S.info[k] === '済み') ? '' : '済み';
   var o = {}; o[k] = v; S.info = S.info || {}; S.info[k] = v;
@@ -947,8 +990,9 @@ function showList(resume) {
     [['稼働開始', inf.start], ['希望日数', inf.days], ['ハッピーボーナス', inf.bonus], ['任意保険', inf.nini], ['貨物保険', inf.kamotsu], ['委託先', inf.itaku]].map(function(p){ return '<div><span class="sub" style="font-size:12px">' + p[0] + '</span>　' + esc(p[1] || '—') + '</div>'; }).join('') +
     '<button class="btn sec" style="margin-top:10px" onclick="showInfo(false)">契約情報を入れる・直す</button></div>';
   html += '<h2>その他必須業務</h2><div class="card">' +
-    '<button class="btn ' + (inf.line === '済み' ? 'main' : 'sec') + '" onclick="markTask(\'line\')">' + (inf.line === '済み' ? '✓ ' : '') + 'LINE＠のメッセージで名前を送信' + (inf.line === '済み' ? '（済み）' : '') + '</button>' +
-    '<button class="btn ' + (inf.tmpl === '済み' ? 'main' : 'sec') + '" onclick="showTmpl()">' + (inf.tmpl === '済み' ? '✓ ' : '') + '新規契約DR情報テンプレート共有' + (inf.tmpl === '済み' ? '（済み）' : '') + '</button></div>';
+    TASKS.map(function(t){ var ok = taskDone(t.k); return '<button class="btn ' + (ok ? 'main' : 'sec') + '" onclick="showTask(\'' + t.k + '\')">' + (ok ? '✓ ' : '') + t.label + (ok ? '（済み）' : '') + '</button>'; }).join('') +
+    '<button class="btn ' + (inf.tmpl === '済み' ? 'main' : 'sec') + '" onclick="showTmpl()">' + (inf.tmpl === '済み' ? '✓ ' : '') + '新規契約DR情報テンプレート共有' + (inf.tmpl === '済み' ? '（済み）' : '') + '</button>' +
+    '<button class="btn ghost" onclick="showGuideSms()">LINE・2つのフォームの案内をSMSで送る</button></div>';
   if (S.checklist) html += '<button class="btn main" onclick="showChecklist()">契約書類チェックリストを見る</button>';
   else html += '<p class="sub center">契約書類チェックリストは、このあと自動で作られます。</p>';
   html += '<button class="btn ghost" onclick="askCar()">車（持込・リース）を変える</button>';
@@ -982,7 +1026,7 @@ function showFinish() {
     (S.formChoice ? '<p class="mark-ok"><b>✓ ' + esc(S.formChoice) + '</b></p>' : '') +
     '<button class="btn main" onclick="showQr(\'form\')">QRコードを見せて、その場で答えてもらう</button>' +
     '<button class="btn sec" onclick="askSms()">あとでSMSで送る</button></div>';
-  if (S.lineUrl) html += '<div class="card"><p><b>② LINE公式アカウントに登録してもらう</b></p><p class="sub">お仕事の連絡に使います。</p>' +
+  if (S.lineUrl) html += '<div class="card"><p><b>② LINE公式アカウントに登録してもらう</b></p><p class="sub">お仕事の連絡に使います。登録したら漢字のフルネームを送ってもらいます。</p>' +
     '<button class="btn main" onclick="showQr(\'line\')">QRコードを見せて、登録してもらう</button></div>';
   html += STAFF ? '<button class="btn ghost" onclick="backToList()">応募者の一覧へもどる</button>' : '';
   view.innerHTML = html;
@@ -991,7 +1035,7 @@ function showQr(kind) {
   var url = kind === 'line' ? S.lineUrl : S.formUrl;
   var title = kind === 'line' ? 'LINE公式アカウントの登録' : '登録番号のフォーム';
   view.innerHTML = '<h1>' + title + '</h1><p>応募者のスマホのカメラで、このQRコードを読み取ってもらってください。</p><div id="qr"></div>' +
-    (kind === 'line' ? '<p class="sub">「追加」を押してもらえば登録できます。</p>' : '<p class="sub">番号がない方も、最後まで答えてもらってください。</p>') +
+    (kind === 'line' ? '<p class="sub">「追加」を押してもらい、LINEのメッセージで漢字のフルネーム（例：山田　太郎）を送ってもらってください。</p>' : '<p class="sub">番号がない方も、最後まで答えてもらってください。</p>') +
     '<button class="btn main" onclick="qrDone(\'' + kind + '\')">' + (kind === 'line' ? '登録してもらった' : '答えてもらった') + '</button>' +
     '<button class="btn ghost" onclick="showFinish()">もどる</button>';
   try { new QRCode(document.getElementById('qr'), { text: url, width: 480, height: 480, correctLevel: QRCode.CorrectLevel.M }); }
