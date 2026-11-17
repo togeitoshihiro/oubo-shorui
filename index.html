@@ -886,7 +886,8 @@ var INFO_FIELDS = [
   { k: 'kamotsu', label: '貨物保険', type: 'choice', opts: ['弊社', '佐川アドバンス', 'ご自身で加入'] },
   { k: 'itaku', label: '委託先（Amazon、佐川など）', type: 'text', ph: '例：佐川急便 ◯◯営業所' },
   { k: 'uniform', label: '制服のサイズ（佐川SPの場合）', type: 'text', ph: '例：L', sagawa: true },
-  { k: 'minpay', label: '最低保証（佐川SPの場合）', type: 'choice', opts: ['あり', 'なし'], sagawa: true }
+  { k: 'minpay', label: '最低保証（佐川SPの場合）', type: 'choice', opts: ['あり', 'なし'], sagawa: true },
+  { k: 'kanri', label: '管理担当（全店舗ドライバー管理表の欄。書類はこの欄の人のフォルダに入ります）', type: 'kanri' }
 ];
 function showInfo(first) {
   setBar();
@@ -895,6 +896,7 @@ function showInfo(first) {
   INFO_FIELDS.forEach(function(f) {
     html += '<div class="fld" id="row_' + f.k + '"' + (f.sagawa && !/佐川/.test(inf.itaku || '') ? ' style="display:none"' : '') + '><label>' + esc(f.label) + '</label><div class="frow">';
     if (f.type === 'choice') html += '<div class="chips2">' + f.opts.map(function(o){ return '<button type="button" class="opt' + (inf[f.k] === o ? ' on' : '') + '" onclick="pickOpt(\'' + f.k + '\',this,\'' + o + '\')">' + esc(o) + '</button>'; }).join('') + '<input type="hidden" id="i_' + f.k + '" value="' + esc(inf[f.k] || '') + '"></div>';
+    else if (f.type === 'kanri') { var kv = inf.kanri || S.kanri || ''; html += '<div style="width:100%"><div class="chips2">' + ['一真', '野嶋'].map(function(o){ return '<button type="button" class="opt' + (kv === o ? ' on' : '') + '" onclick="pickOpt(\'kanri\',this,\'' + o + '\');document.getElementById(\'i_kanri_o\').value=\'\'">' + o + 'さん</button>'; }).join('') + '</div><input id="i_kanri_o" style="margin-top:6px;width:100%" placeholder="ほかの支店のときは支店名（例：柏）" value="' + (kv && kv !== '一真' && kv !== '野嶋' ? esc(kv) : '') + '"><input type="hidden" id="i_kanri" value="' + esc(kv) + '"></div>'; }
     else if (f.type === 'date') html += '<input type="date" id="i_' + f.k + '" value="' + toInputDate(inf[f.k]) + '">';
     else html += '<input id="i_' + f.k + '" value="' + esc(inf[f.k] || '') + '" placeholder="' + esc(f.ph || '') + '"' + (f.k === 'itaku' ? ' oninput="toggleSagawa()"' : '') + '>';
     html += '</div></div>';
@@ -914,10 +916,12 @@ function toggleSagawa() { var sg = /佐川/.test(document.getElementById('i_itak
 function saveInfo(first) {
   var info = {};
   INFO_FIELDS.forEach(function(f){ var el = document.getElementById('i_' + f.k); if (el) info[f.k] = f.type === 'date' ? toSheetDate(el.value) : el.value.trim(); });
+  var ko = document.getElementById('i_kanri_o'); if (ko && ko.value.trim()) info.kanri = ko.value.trim();
   loading('保存しています…');
   run('setInfo', [TOKEN, info], function(r) {
     S.info = S.info || {}; Object.keys(info).forEach(function(k){ S.info[k] = info[k]; });
     if (r && r.checklist) S.checklist = r.checklist;
+    if (info.kanri) S.kanri = info.kanri;
     steps = needSteps(); setBar();
     if (first) goNext(); else showList(false);
   });
@@ -1095,8 +1099,9 @@ function showList(resume) {
   html += '<button class="btn ghost" onclick="pickRedo()">撮り直す・追加する書類をえらぶ</button>';
   var inf = S.info || {};
   html += '<h2>契約情報</h2><div class="card" style="font-size:14px">' +
-    [['稼働開始', inf.start], ['希望日数', inf.days], ['ハッピーボーナス', inf.bonus], ['任意保険', inf.nini], ['貨物保険', inf.kamotsu], ['委託先', inf.itaku]].map(function(p){ return '<div><span class="sub" style="font-size:12px">' + p[0] + '</span>　' + esc(p[1] || '—') + '</div>'; }).join('') +
-    '<button class="btn sec" style="margin-top:10px" onclick="showInfo(false)">契約情報を入れる・直す</button></div>';
+    [['稼働開始', inf.start], ['希望日数', inf.days], ['ハッピーボーナス', inf.bonus], ['任意保険', inf.nini], ['貨物保険', inf.kamotsu], ['委託先', inf.itaku], ['管理担当', (inf.kanri || S.kanri) ? (inf.kanri || S.kanri) + ((inf.kanri || S.kanri).length <= 3 ? 'さん' : '') : '']].map(function(p){ return '<div><span class="sub" style="font-size:12px">' + p[0] + '</span>　' + esc(p[1] || '—') + '</div>'; }).join('') +
+    '<button class="btn sec" style="margin-top:10px" onclick="showInfo(false)">契約情報を入れる・直す</button></div>' +
+    (!(inf.kanri || S.kanri) ? '<div class="warn" style="margin-top:8px">管理担当が決まっていません。契約情報で管理担当を選ぶと、書類が全店舗ドライバー管理表のフォルダに保存されます' + (S.sent ? '（今は保存待ち）' : '') + '。</div>' : '');
   html += '<h2>その他必須業務</h2><div class="card">' +
     TASKS.map(function(t){ var ok = taskDone(t.k); return '<button class="btn ' + (ok ? 'main' : 'sec') + '" onclick="showTask(\'' + t.k + '\')">' + (ok ? '✓ ' : '') + t.btn + (ok ? '（済み）' : '') + '</button>'; }).join('') +
     '<button class="btn ' + (inf.tmpl === '済み' ? 'main' : 'sec') + '" onclick="showTmpl()">' + (inf.tmpl === '済み' ? '✓ ' : '') + '新規契約DR情報テンプレート共有' + (inf.tmpl === '済み' ? '（済み）' : '') + '</button>' +
