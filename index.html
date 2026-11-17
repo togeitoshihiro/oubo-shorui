@@ -896,7 +896,7 @@ function showInfo(first) {
   INFO_FIELDS.forEach(function(f) {
     html += '<div class="fld" id="row_' + f.k + '"' + (f.sagawa && !/佐川/.test(inf.itaku || '') ? ' style="display:none"' : '') + '><label>' + esc(f.label) + '</label><div class="frow">';
     if (f.type === 'choice') html += '<div class="chips2">' + f.opts.map(function(o){ return '<button type="button" class="opt' + (inf[f.k] === o ? ' on' : '') + '" onclick="pickOpt(\'' + f.k + '\',this,\'' + o + '\')">' + esc(o) + '</button>'; }).join('') + '<input type="hidden" id="i_' + f.k + '" value="' + esc(inf[f.k] || '') + '"></div>';
-    else if (f.type === 'kanri') { var kv = inf.kanri || S.kanri || ''; html += '<div class="chips2">' + ['一真', '野嶋', '坂西'].map(function(o){ return '<button type="button" class="opt' + (kv === o ? ' on' : '') + '" onclick="pickOpt(\'kanri\',this,\'' + o + '\')">' + o + 'さん</button>'; }).join('') + '<input type="hidden" id="i_kanri" value="' + esc(kv) + '"></div>'; }
+    else if (f.type === 'kanri') { var kv = inf.kanri || S.kanri || ''; html += '<div class="chips2">' + ['一真', '野嶋', '坂西', '赤倉'].map(function(o){ return '<button type="button" class="opt' + (kv === o ? ' on' : '') + '" onclick="pickOpt(\'kanri\',this,\'' + o + '\')">' + o + 'さん</button>'; }).join('') + '<input type="hidden" id="i_kanri" value="' + esc(kv) + '"></div>'; }
     else if (f.type === 'date') html += '<input type="date" id="i_' + f.k + '" value="' + toInputDate(inf[f.k]) + '">';
     else html += '<input id="i_' + f.k + '" value="' + esc(inf[f.k] || '') + '" placeholder="' + esc(f.ph || '') + '"' + (f.k === 'itaku' ? ' oninput="toggleSagawa()"' : '') + '>';
     html += '</div></div>';
