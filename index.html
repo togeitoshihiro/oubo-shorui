@@ -119,6 +119,7 @@
   .voice.on { background:linear-gradient(135deg, #a52a21, var(--warn)); }
   .voice.on .vi::after { content:''; position:absolute; inset:-5px; border-radius:50%; border:2px solid #fff; animation:ring 1.2s ease-out infinite; }
   @keyframes pulse { 50% { opacity:.55; } }
+  .ptag { display:inline-block; font-size:11px; font-weight:700; padding:1px 7px; border-radius:999px; white-space:nowrap; } .ptag.ok { background:#e6f4ea; color:#1a7f37; } .ptag.wait { background:#fff4d6; color:#9a6700; } .ptag.ng { background:#fde8e8; color:#c62828; } .ptag.none { background:#eef1ef; color:#8a948f; font-weight:500; }
   .saved { font-size:11.5px; margin-left:6px; font-weight:700; } .saved.ok { color:var(--g); } .saved.ng { color:var(--warn); }
   .chips2 { display:flex; flex-wrap:wrap; gap:6px; }
   .opt { border:1.5px solid var(--line); background:#fff; border-radius:999px; padding:8px 14px; font-size:15px; font-family:inherit; cursor:pointer; color:var(--ink); }
@@ -994,7 +995,9 @@ function showChecklist() {
       if (err) { view.innerHTML = '<h1>チェックリストを出せませんでした</h1>' + back; return; }
       var bin = atob(r.pdf), u = new Uint8Array(bin.length);
       for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
-      view.innerHTML = '<h1>契約書類チェックリスト</h1><p class="sub">2本の指で広げると大きく見られます。</p><div id="pdfv"></div>' + back +
+      view.innerHTML = '<h1>契約書類チェックリスト</h1><p class="sub">2本の指で広げると大きく見られます。</p>' +
+        (r.saved ? '<div class="note" style="font-size:13px">このPDFはドライブに保存しました（AI作業場 › 05_応募書類 › ' + esc(S.name) + 'さんのフォルダ）。 <a href="' + esc(r.folder || r.saved) + '" target="_blank" rel="noopener" style="color:var(--g);font-weight:700">フォルダを開く</a></div>' : '') +
+        '<div id="pdfv"></div><button class="btn sec" onclick="showPrint([\'checklist\'])">このチェックリストを印刷する</button>' + back +
         '<a class="btn ghost" href="' + esc(r.url) + '" target="_blank" rel="noopener">スプレッドシートで開く</a>';
       window.scrollTo(0, 0);
       pdfjsLib.getDocument({ data: u }).promise.then(function(doc) {
@@ -1017,9 +1020,9 @@ function showChecklist() {
 // その他必須業務（2026-11-15 広瀬さん：LINE連絡網・メールアドレス登録フォーム・登録番号フォームを追加）
 var MAIL_FORM_FALLBACK = 'https://docs.google.com/forms/d/e/1FAIpQLSeWuLCyeB2Z4Cow2OUJUMpS1_HlO1XNrshx_TPwa10OwmztVg/viewform';
 var TASKS = [
-  { k: 'line', label: 'DR連絡網（LINE）に登録・漢字フルネームを送信' },
-  { k: 'mailform', label: 'メールアドレス登録フォームに回答' },
-  { k: 'touroku', label: '登録番号フォームに回答' }
+  { k: 'line', label: 'DR連絡網（LINE）に登録・漢字フルネームを送信', btn: 'QRコード表示：DR連絡網（LINE）登録' },
+  { k: 'mailform', label: 'メールアドレス登録フォームに回答', btn: 'QRコード表示：メールアドレス登録フォーム' },
+  { k: 'touroku', label: '登録番号フォームに回答', btn: 'QRコード表示：登録番号フォーム' }
 ];
 function taskUrl(k) { return k === 'line' ? S.lineUrl : k === 'mailform' ? (S.mailFormUrl || MAIL_FORM_FALLBACK) : S.formUrl; }
 function taskDone(k) { var inf = S.info || {}; return inf[k] === '済み' || (k === 'touroku' && /QR/.test(S.formChoice || '')); }
@@ -1081,7 +1084,7 @@ function showList(resume) {
   var html = '<h1>' + esc(S.name) + 'さんの書類</h1><ul class="list">';
   steps.forEach(function(d) {
     var st = S.done.indexOf(d.key) >= 0 ? '<b class="mark-ok">✓ アップロード済み</b>' : S.later.indexOf(d.key) >= 0 ? '<b class="mark-later">あとで</b>' : '<b class="mark-no">まだ</b>';
-    html += '<li><span>' + esc(d.name) + '</span>' + st + '</li>';
+    html += '<li><span>' + esc(d.name) + printTag(d.key) + '</span>' + st + '</li>';
   });
   html += '</ul>';
   var todo = firstTodo();
@@ -1095,14 +1098,68 @@ function showList(resume) {
     [['稼働開始', inf.start], ['希望日数', inf.days], ['ハッピーボーナス', inf.bonus], ['任意保険', inf.nini], ['貨物保険', inf.kamotsu], ['委託先', inf.itaku]].map(function(p){ return '<div><span class="sub" style="font-size:12px">' + p[0] + '</span>　' + esc(p[1] || '—') + '</div>'; }).join('') +
     '<button class="btn sec" style="margin-top:10px" onclick="showInfo(false)">契約情報を入れる・直す</button></div>';
   html += '<h2>その他必須業務</h2><div class="card">' +
-    TASKS.map(function(t){ var ok = taskDone(t.k); return '<button class="btn ' + (ok ? 'main' : 'sec') + '" onclick="showTask(\'' + t.k + '\')">' + (ok ? '✓ ' : '') + t.label + (ok ? '（済み）' : '') + '</button>'; }).join('') +
+    TASKS.map(function(t){ var ok = taskDone(t.k); return '<button class="btn ' + (ok ? 'main' : 'sec') + '" onclick="showTask(\'' + t.k + '\')">' + (ok ? '✓ ' : '') + t.btn + (ok ? '（済み）' : '') + '</button>'; }).join('') +
     '<button class="btn ' + (inf.tmpl === '済み' ? 'main' : 'sec') + '" onclick="showTmpl()">' + (inf.tmpl === '済み' ? '✓ ' : '') + '新規契約DR情報テンプレート共有' + (inf.tmpl === '済み' ? '（済み）' : '') + '</button>' +
     '<button class="btn ghost" onclick="showGuideSms()">LINE・2つのフォームの案内をSMSで送る</button></div>';
-  if (S.checklist) html += '<button class="btn main" onclick="showChecklist()">契約書類チェックリストを見る</button>';
+  if (S.checklist) html += '<button class="btn main" onclick="showChecklist()">契約書類チェックリストを見る</button>' + printTag('checklist', true) +
+    '<p class="sub center" style="font-size:12px;margin-top:2px">チェックリストはPDFでドライブに自動で保存されます<br>（AI作業場 › 05_応募書類 › ' + esc(S.name) + 'さんのフォルダ）</p>';
   else html += '<p class="sub center">契約書類チェックリストは、このあと自動で作られます。</p>';
+  html += '<button class="btn sec" onclick="showPrint()">書類を印刷する（事務所のプリンター）</button>';
   html += '<button class="btn ghost" onclick="askCar()">車（持込・リース）を変える</button>';
   if (S.no === '練習用') html += '<button class="btn danger" onclick="resetTest()">テストをリセット（最初の状態にもどす）</button>';
   view.innerHTML = html;
+}
+// ===== 遠隔印刷（事務所のプリンター J7600CDW。事務所のMacが1分おきに依頼を見て印刷する）=====
+function printTag(k, block) {
+  var p = (S && S.printed || {})[k];
+  if (!p) return '';
+  var cls = p.state === '印刷済み' ? 'ok' : p.state === 'エラー' ? 'ng' : 'wait';
+  var txt = p.state === '印刷済み' ? '印刷済み ' + p.at : p.state === 'エラー' ? '印刷できませんでした' : '印刷待ち';
+  return block ? '<p class="center" style="margin:2px 0"><span class="ptag ' + cls + '">' + esc(txt) + '</span></p>' : ' <span class="ptag ' + cls + '">' + esc(txt) + '</span>';
+}
+var PRINT_SEL = null;
+function showPrint(pre) {
+  loading('印刷できる書類を調べています…');
+  run('printItems', [TOKEN], function(r) {
+    if (!r || !r.ok) { view.innerHTML = '<h1>書類を読み込めませんでした</h1><button class="btn main" onclick="showList(false)">もどる</button>'; return; }
+    S.printed = r.printed || {};
+    PRINT_SEL = {};
+    (pre || []).forEach(function(k){ PRINT_SEL[k] = true; });
+    drawPrint(r.items);
+  }, function() { view.innerHTML = '<h1>書類を読み込めませんでした</h1><p>電波を確かめてください。</p><button class="btn main" onclick="showList(false)">もどる</button>'; });
+}
+var PRINT_ITEMS = [];
+function drawPrint(items) {
+  PRINT_ITEMS = items;
+  window.scrollTo(0, 0);
+  if (!items.length) { view.innerHTML = '<h1>書類を印刷する</h1><p>まだ印刷できる書類がありません。書類を撮るか、チェックリストができてからお試しください。</p><button class="btn ghost" onclick="showList(false)">もどる</button>'; return; }
+  var html = '<h1>書類を印刷する</h1><p class="sub">事務所のプリンターで、A4で印刷します。どこからでも押せます（事務所のパソコンが動いていれば1分ほどで印刷されます）。</p>';
+  html += '<button class="btn main" onclick="doPrint(true)">全部まとめて印刷する（' + items.length + '件）</button>';
+  html += '<h2>選んで印刷する</h2><div class="card" style="padding:6px 12px">';
+  items.forEach(function(it, i) {
+    html += '<label style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:15px"><input type="checkbox" style="width:22px;height:22px" ' + (PRINT_SEL[it.key] ? 'checked ' : '') + 'onchange="PRINT_SEL[\'' + it.key + '\']=this.checked;updPrintBtn()"><span style="flex:1">' + esc(it.name) + (it.pages > 1 ? '<span class="sub" style="font-size:12px">（' + it.pages + '枚）</span>' : '') + '</span>' + (printTag(it.key) || '<span class="ptag none">まだ印刷していない</span>') + '</label>';
+  });
+  html += '</div><button class="btn sec" id="printSel" onclick="doPrint(false)">選んだ書類を印刷する</button>';
+  html += '<button class="btn ghost" onclick="showPrint()">印刷の状態を最新にする</button><button class="btn ghost" onclick="showList(false)">もどる</button>';
+  view.innerHTML = html;
+  updPrintBtn();
+}
+function updPrintBtn() {
+  var n = PRINT_ITEMS.filter(function(it){ return PRINT_SEL[it.key]; }).length, b = document.getElementById('printSel');
+  if (b) { b.disabled = !n; b.style.opacity = n ? 1 : .5; b.textContent = n ? '選んだ書類を印刷する（' + n + '件）' : '印刷する書類にチェックを入れてください'; }
+}
+function doPrint(all) {
+  var keys = PRINT_ITEMS.filter(function(it){ return all || PRINT_SEL[it.key]; }).map(function(it){ return it.key; });
+  if (!keys.length) return;
+  var names = PRINT_ITEMS.filter(function(it){ return keys.indexOf(it.key) >= 0; }).map(function(it){ return it.name; });
+  loading('印刷を依頼しています…');
+  run('requestPrint', [TOKEN, keys, STAFF || ''], function(r) {
+    if (!r || !r.ok) { view.innerHTML = '<h1>印刷を依頼できませんでした</h1><p>もう一度ためしてください。</p><button class="btn main" onclick="showPrint()">もどる</button>'; return; }
+    S.printed = r.printed || S.printed;
+    view.innerHTML = '<div class="big-check">✓</div><h1 class="center">印刷を依頼しました</h1><p class="center sub">事務所のプリンターで、1分ほどで印刷されます。<br>印刷が終わると「印刷済み」になります。</p>' +
+      '<div class="card" style="font-size:14px">' + names.map(esc).join('<br>') + '</div>' +
+      '<button class="btn main" onclick="showPrint()">印刷の状態を見る</button><button class="btn ghost" onclick="showList(false)">書類の一覧にもどる</button>';
+  }, function() { view.innerHTML = '<h1>印刷を依頼できませんでした</h1><p>電波を確かめて、もう一度ためしてください。</p><button class="btn main" onclick="showPrint()">もどる</button>'; });
 }
 function pickRedo() {
   var html = '<h1>どの書類を撮りますか？</h1>';
