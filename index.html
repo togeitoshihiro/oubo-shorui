@@ -252,6 +252,7 @@ function showStaffList(reload) {
   run('staffList', [STAFF], function(r) {
     if (!r || !r.ok) { if (!shown) view.innerHTML = '<h1>このリンクでは開けません</h1><p>担当者用のリンクを、もう一度開いてください。</p>'; return; }
     try { localStorage.setItem(cacheKey(), JSON.stringify({ ok: r.ok, staff: r.staff, options: r.options, fix: r.fix, at: r.at, items: r.items.filter(function(x){ return !x.test; }) })); } catch (e) {}
+    try { if (r.vocab) localStorage.setItem('vocab', JSON.stringify(r.vocab)); } catch (e) {}
     useList(r);
     if (!shown) { renderHome(); return; }
     if (ON_HOME && document.getElementById('homeMark')) { var ae = document.activeElement; if (ae && ae.tagName === 'INPUT') { var m = document.getElementById('upd'); if (m) m.textContent = ''; } else renderHome(); }
@@ -394,7 +395,7 @@ function showDetail(i) {
   var cl = contactLog(x);
   if (cl.length) html += '<div class="card"><b style="font-size:14px">連絡の記録</b><ul class="hist">' + cl.map(function(c){ return '<li class="h-' + c.k + '">' + esc(c.t) + '</li>'; }).join('') + '</ul></div>';
   html += '<h2>面談の内容</h2><div class="card"><p class="sub" style="margin-top:0">入れると自動で保存します。マイクを押すと声で入力できます。</p>';
-  html += '<button class="voice" id="mic_all" onclick="listen(\'other\', this)"><span class="vi">' + MIC_SVG + '</span><span><b>まとめて話す</b><small id="mic_all_t">「希望エリアは〜、前職は〜」のように項目の名前を言うと、その項目に入ります</small></span></button>';
+  html += '<button class="voice" id="mic_all" onclick="listen(\'other\', this)"><span class="vi">' + MIC_SVG + '</span><span><b>まとめて話す</b><small id="mic_all_t">ふだんの言い方で話せば、中身を見て各項目に分けます（「軽バンなし、手取り30万希望、今は工場」など）</small></span></button>';
   FIELDS.forEach(function(f){ html += fieldHtml(x, f); });
   html += '<button class="btn main" onclick="saveAll()">入力した内容をシートに保存</button><p class="sub center" id="allSaved"></p></div>';
   html += '<h2>結果</h2>';
@@ -419,6 +420,7 @@ function saveField(k) {
   var el = document.getElementById('f_' + k); if (!el) return;
   var v = k === 'interview' ? toSheetDate(el.value) : el.value.trim();
   var mark = document.getElementById('s_' + k);
+  learnFromEdit(x, k, v);
   if (mark) { mark.textContent = '保存中…'; mark.className = 'saved'; }
   if (x.test) { x[k] = v; saveTest(x); setTimeout(function(){ if (mark) { mark.textContent = '✓ 保存しました（テストなのでシートには書きません）'; mark.className = 'saved ok'; } }, 300); return; }
   var f = {}; f[k] = v;
@@ -493,20 +495,85 @@ function smsSent(yes) {
 }
 // 声で入力（iPhoneのSafariなど、対応している端末だけ。だめならキーボードのマイクを案内）
 var REC = null;
-// まとめて話した内容を、言葉の目印（「希望エリアは」「前職は」など）で各項目に振り分ける。目印のない部分は「その他」へ
+// まとめて話した内容を各項目へ振り分ける（2026-11-17 作り直し：赤倉さんの要望）
+// ①「希望エリアは〜」のように項目名を言った部分はその項目へ
+// ② 項目名を言わなかった部分は、区切り（、。・あと・それと・「なし」「希望」の後など）で短く切り、
+//    言葉の中身（軽バン→車、手取り→希望手取り、現在〜→前職…）と、求人シートの過去の入力（地名・案件名）で項目を決める
+// ③ どれにも当てはまらない部分（人柄の感想など）だけ「その他」へ
 var SPLIT_KEYS = [
-  { k: 'area',  re: /(希望の?エリア|希望地域|勤務地|エリア)/ },
-  { k: 'job',   re: /(希望の?仕事|やりたい仕事|仕事内容|希望の?業務|仕事は|仕事が)/ },
-  { k: 'car',   re: /(車・保険|車と保険|車両|車は|車が|保険は|保険が)/ },
-  { k: 'exp',   re: /(ドライバー経験|ドライバーの経験|配送経験|経験)/ },
-  { k: 'prev',  re: /(前職|前の仕事|以前の仕事|今の仕事|現職)/ },
-  { k: 'pay',   re: /(希望の?手取り|手取り|希望の?給料|給料|月収|収入)/ },
-  { k: 'first', re: /(初回出勤|初出勤|出勤開始|勤務開始|開始日|いつから|スタート)/ },
-  { k: 'home',  re: /(お住まい|住まい|住んで(い|る)|住所)/ },
+  { k: 'area',  re: /(希望の?エリア|希望地域|勤務地は|エリアは)/ },
+  { k: 'job',   re: /(希望の?仕事|やりたい仕事|仕事内容|希望の?業務)/ },
+  { k: 'car',   re: /(車・保険|車と保険|車両は|車は|保険は)/ },
+  { k: 'exp',   re: /(ドライバー経験は|ドライバーの経験は|配送経験は|経験は)/ },
+  { k: 'prev',  re: /(前職|前の仕事は|以前の仕事は|今の仕事は|現職は)/ },
+  { k: 'pay',   re: /(希望の?手取りは|手取りは|希望の?給料は|給料は|月収は)/ },
+  { k: 'first', re: /(初回出勤|初出勤|出勤開始|勤務開始|開始日は|いつからは)/ },
+  { k: 'home',  re: /(お住まいは|住まいは|住所は)/ },
   { k: 'interview', re: /(面接日|面談日|面接は|面談は)/ },
-  { k: 'state', re: /(連絡状態|状態)/ },
-  { k: 'other', re: /(その他|そのほか|ほかに|他に|メモ|[、,。\s　]あと|^あと|あと[、,\s　]|それと|ちなみに)/ }
+  { k: 'state', re: /(連絡状態|状態は)/ },
+  { k: 'other', re: /(その他は?|そのほかは?|メモは?)/ }
 ];
+// 言葉の中身で決める（上から順に見て、最初に当てはまった項目）
+var CLAUSE_RULES = [
+  { k: 'first', re: /(初回|初出勤|出勤開始|勤務開始|働き始め|(?<!時)から(すぐ|でも)?(働|出勤|出れ|出ら|始|勤務|稼働|入れ|入れる|可能|OK|オッケー|大丈夫|いけ|行け)|([0-9０-９]+[月日]|来週|来月)以降|すぐ(にでも)?(働|出|始|入|いけ|行け|可能|OK|大丈夫)|^(来週|来月|再来週)(から)?$)/ },
+  { k: 'pay',   re: /(手取り|月収|年収|収入|給料|給与|稼ぎ|[0-9０-９一二三四五六七八九十百]+万)/ },
+  { k: 'exp',   re: /(経験|未経験|ドライバー歴|配送歴|運送歴|軽貨物歴)/ },
+  { k: 'car',   re: /(軽バン|黒ナンバー|黄色ナンバー|ナンバー|自分の車|マイカー|自家用|車|保険|リース|持込|持ち込み|バン)/ },
+  { k: 'prev',  re: /(前職|現職|現在|今は|今の仕事|以前|元々|もともと|前は|昔は|やってた|やってい|勤めて|働いて|勤務して|会社員|正社員で|工場|飲食|営業職|事務|介護|無職|ニート|フリーター|主婦|学生|退職|辞めて|やめて)/ },
+  { k: 'area',  re: /(通勤|エリア|勤務地|方面|近く|近場|周辺|分以内|分くらい|分ぐらい|分前後|内希望)/ },
+  { k: 'home',  re: /(住んで|住み|在住|住まい|自宅|実家|家は|家が|最寄)/ },
+  { k: 'job',   re: /(アルバイト|バイト|スポット|正社員|社員|副業|フランチャイズ|業務委託|個人事業|佐川|ヤマト|アマゾン|Amazon|アマフレ|ナイト便|企業便|宅配|ルート|夜間|フルタイム|週[0-9０-９一二三四五六七]|平日|土日|土曜|日曜|午前|午後|日中|朝から|夜だけ|時から|時まで|時以降|時〜|稼働日|日数)/ }
+];
+// 区切り：句読点・空白・つなぎの言葉の前後
+var CUT_BEFORE = /(あと|直近|それと|ちなみに|それから|現在|今は|前職|以前|手取り|月収|通勤|お住まい|在住|軽バン|黒ナンバー|自分の車|マイカー|未経験|ドライバー経験|配送経験|初回|希望エリア)/g;
+var CUT_AFTER = /(希望|なし|無し|ありで|あり|有り|です|ます|でした|ました|とのこと|らしい|ないです|OK|オッケー|可能|大丈夫|不可|NG|ていて|でいて)(?=[^、。,\s　はがもをのでとにな時日週])/g;
+function speechClauses(t) {
+  t = String(t || '').replace(CUT_BEFORE, '、$1').replace(CUT_AFTER, '$1、');
+  var out = [], pre = '';
+  t.split(/[、。,.\s　!！?？]+/).forEach(function(c) {
+    c = c.replace(/^(あと|それと|ちなみに|それから|えーと|えっと|あの|まあ|で)+[はもね]?/, '').trim();
+    if (!c) return;
+    // 「です」「ね」だけのかけらは前につなげる
+    if (/^(です|ます|でした|ました|ね|よ|かな|だそうです|とのことです)$/.test(c)) { if (out.length) out[out.length - 1] += c; return; }
+    // 「最初は」「最初は週4日から」のように、短い前置きは次とつなげる
+    if (pre) { c = pre + c; pre = ''; }
+    if (c.length <= 4 && /[はも]$/.test(c)) { pre = c; return; }
+    out.push(c);
+  });
+  if (pre) out.push(pre);
+  return out;
+}
+// 求人シートの過去の入力（お住まい・希望エリア・希望仕事）から、その言葉がどの項目によく出るか
+function vocabKey(c) {
+  var v = (LIST && LIST.vocab) || null;
+  if (!v) { try { v = JSON.parse(localStorage.getItem('vocab') || 'null'); } catch (e) {} }
+  if (!v) return '';
+  var best = '', bl = 1;
+  ['job', 'area', 'home'].forEach(function(k) {
+    (v[k] || []).forEach(function(w) {
+      if (/^[ぁ-んー]+$/.test(w)) return; // 「なるべく」などひらがなだけの言葉は使わない
+      if (w.length >= 3 && /[市区町村]$/.test(w)) w = w.slice(0, -1); // 「高崎市」→「高崎」でも当たるように
+      if (w.length > bl && c.indexOf(w) >= 0) { best = k; bl = w.length; }
+    });
+  });
+  return best;
+}
+function classifyClause(c) {
+  for (var i = 0; i < CLAUSE_RULES.length; i++) if (CLAUSE_RULES[i].re.test(c)) return CLAUSE_RULES[i].k;
+  return vocabKey(c) || 'other';
+}
+// プルダウンの欄（車・保険など）は選択肢に合わせる。合わなければ ''（→その他へ）
+function toOption(x, name, v) {
+  var opts = optionsFor(x, name);
+  if (!opts.length) return v;
+  var hit = opts.filter(function(o){ return v.indexOf(o) >= 0; }).sort(function(a, b){ return b.length - a.length; })[0];
+  if (hit) return hit;
+  var neg = /(なし|無し|ない|無い|持ってない|持っていない|未加入|^無$)/.test(v);
+  var pos = !neg && /(あり|有り|ある|持って|加入|^有$)/.test(v);
+  if (neg) hit = opts.filter(function(o){ return /無|なし/.test(o); })[0];
+  if (pos) hit = opts.filter(function(o){ return /^有|あり/.test(o); })[0];
+  return hit || '';
+}
 function splitSpeech(text, x) {
   var hits = [];
   SPLIT_KEYS.forEach(function(d) {
@@ -516,21 +583,40 @@ function splitSpeech(text, x) {
   hits.sort(function(a, b){ return a.i - b.i || (b.end - b.i) - (a.end - a.i); });
   var used = [], lastEnd = -1;
   hits.forEach(function(h){ if (h.i >= lastEnd) { used.push(h); lastEnd = h.end; } });
-  var out = {}, rest = used.length ? text.slice(0, used[0].i) : text;
-  var clean = function(v){ return v.replace(/^[\s　、。,.：:はがをもの]+/, '').replace(/[\s　、。,.]+$/, '').replace(/(です|でした|で)$/, '').replace(/[\s　、。,.]+$/, '').trim(); };
+  var out = {}, rest = [];
+  var add = function(k, v) { out[k] = out[k] ? out[k] + '、' + v : v; };
+  var clean = function(v){ return v.replace(/^[\s　、。,.：:はがをもの]+/, '').replace(/[\s　、。,.]+$/, '').replace(/(です|でした)$/, '').replace(/[\s　、。,.]+$/, '').trim(); };
+  var trim2 = function(v){ return v.replace(/^[\s　、。,.：:]+/, '').replace(/[\s　、。,.]+$/, '').replace(/(です|でした|で)$/, '').trim(); };
+  // 項目名のない部分を中身で振り分ける
+  var auto = function(seg) {
+    speechClauses(seg).forEach(function(c) {
+      c = trim2(c); if (!c) return;
+      var k = classifyClause(c);
+      if (k === 'car' && optionsFor(x, '車・保険').length) { var o = toOption(x, '車・保険', c); if (o) { if (!out.car) out.car = o; } else add('other', c); return; }
+      add(k, c);
+    });
+  };
+  if (!used.length) auto(text); else auto(text.slice(0, used[0].i));
   used.forEach(function(h, j) {
     var v = clean(text.slice(h.end, j + 1 < used.length ? used[j + 1].i : text.length));
     if (!v) return;
-    if (h.k === 'state') { var opts = optionsFor(x, '連絡状態'), hit = opts.filter(function(o){ return v.indexOf(o) >= 0; })[0]; if (hit) out.state = hit; else rest += ' ' + v; return; }
-    if (h.k === 'other') { rest += ' ' + v; return; }
-    if (h.k === 'interview') { var dt = speechDate(v); if (dt) { out.interview = dt; var tail = v.replace(/^(今日|きょう|本日|明日|あした|明後日|あさって|昨日|きのう|\d{1,2}月\d{1,2}日|\d{1,2}\/\d{1,2})(です|で)?[、。\s　]*/, ''); if (tail) rest += ' ' + tail; } else rest += ' 面接日 ' + v; return; }
-    out[h.k] = out[h.k] ? out[h.k] + '、' + v : v;
+    if (h.k === 'state') { var opts = optionsFor(x, '連絡状態'), hit = opts.filter(function(o){ return v.indexOf(o) >= 0; })[0]; if (hit) out.state = hit; else auto(v); return; }
+    if (h.k === 'other') { add('other', v); return; }
+    if (h.k === 'interview') { var dt = speechDate(v); if (dt) { out.interview = dt; var tail = v.replace(/^(今日|きょう|本日|明日|あした|明後日|あさって|昨日|きのう|\d{1,2}月\d{1,2}日|\d{1,2}\/\d{1,2})(です|で)?[、。\s　]*/, ''); if (tail) auto(tail); } else add('other', '面接日 ' + v); return; }
+    if (h.k === 'car' && optionsFor(x, '車・保険').length) { var o = toOption(x, '車・保険', v); if (o) out.car = o; else add('other', '車・保険 ' + v); return; }
+    // 項目名のあとに別の話が続いたとき（「前職は工場で、明るい方」）は、2つ目からを中身で振り分け直す
+    var cs = speechClauses(v);
+    add(h.k, clean(cs[0] || v));
+    cs.slice(1).forEach(function(c) { auto(c); });
   });
-  // 「辞退」「検討中」などの連絡状態の言葉がそのまま話されたら、連絡状態にも入れる（「自体」は「辞退」の聞き間違いとして扱う）
+  // 「辞退」「検討中」などの連絡状態の言葉がそのまま話されたら、連絡状態に入れる（その言葉はその他に残さない）
   var all = text.replace(/自体/g, '辞退');
-  if (!out.state) { var so = optionsFor(x, '連絡状態').filter(function(o){ return o !== 'SMS送信済み' && all.indexOf(o) >= 0; }); if (so.length) out.state = so[0]; }
-  rest = clean(rest.replace(/(^|[\s　、。])自体(?=$|[\s　、。])/g, '$1辞退'));
-  return { fields: out, rest: rest };
+  if (!out.state) { var so = optionsFor(x, '連絡状態').filter(function(o){ return o !== 'SMS送信済み' && all.indexOf(o) >= 0; }).sort(function(a, b){ return b.length - a.length; }); if (so.length) out.state = so[0]; }
+  if (out.state && out.other) { out.other = out.other.split('、').filter(function(c){ return c.replace(/自体/g, '辞退').replace(/(です|でした|で)$/, '') !== out.state; }).join('、'); }
+  if (out.home) out.home = out.home.replace(/(に|で)?(住んで(い|る|おり)?(て|ます|ました)?|在住(です)?)$/, '');
+  var r = out.other || ''; delete out.other;
+  Object.keys(out).forEach(function(k){ if (!out[k]) delete out[k]; });
+  return { fields: out, rest: r };
 }
 function speechDate(v) {
   var d = new Date(), m;
@@ -548,6 +634,24 @@ function fixSpeech(t) {
   t = t.replace(/([^0-9０-９回日万円時間年件個人台])[、。,.\s　]*以上(です)?[。\s　]*$/, '$1').replace(/^[、。\s　]*以上[。\s　]*$/, '');
   return t.trim();
 }
+// 声で入れた内容を担当者が手で直したら、その言葉の直しを覚える（「聞き間違いの直し」タブに候補として記録。同じ直しが2回で自動の直しになる）
+var VOICE = null;
+function voiceMark(x, k, v) { if (!x) return; if (!VOICE || VOICE.x !== x) VOICE = { x: x, v: {} }; if (v) VOICE.v[k] = v; }
+function learnFromEdit(x, k, v) {
+  if (!VOICE || VOICE.x !== x || !VOICE.v[k]) return;
+  var a = VOICE.v[k]; VOICE.v[k] = v;
+  if (!v || a === v) return;
+  var p = 0; while (p < a.length && p < v.length && a[p] === v[p]) p++;
+  var q = 0; while (q < a.length - p && q < v.length - p && a[a.length - 1 - q] === v[v.length - 1 - q]) q++;
+  // 「羽田野→秦野」のように一部だけ違うときは、前後の同じ文字も含めて3文字以上の言葉で覚える（「羽田→秦」だと羽田空港まで変わるため）
+  while (a.length - p - q < 3 && (q > 0 || p > 0)) { if (q > 0) q--; else p--; }
+  var heard = a.slice(p, a.length - q), right = v.slice(p, v.length - q);
+  // 言い換え（文の追加・削除・数字の変更）は覚えない。短い言葉の置き換えだけ
+  if (heard.length < 2 || heard.length > 10 || !right || right.length > 10) return;
+  if (/[、。,.\n\s　]/.test(heard + right) || /[0-9０-９]/.test(heard + right)) return;
+  LIST.fix = (LIST.fix || []);
+  run('addFix', [STAFF, heard, right, k], function(){}, function(){});
+}
 var UNDO = null;
 function applySplit(x, text, beforeOther) {
   var r = splitSpeech(text, x), f = {}, prev = {};
@@ -563,9 +667,10 @@ function applySplit(x, text, beforeOther) {
   if (oel) oel.value = ov;
   if (ov !== (x.other || '')) f.other = ov;
   UNDO = { x: x, prev: prev };
+  Object.keys(f).forEach(function(k){ if (k !== 'state' && k !== 'interview' && k !== 'car') voiceMark(x, k, f[k]); });
   var names = Object.keys(r.fields).map(function(k){ var d = FIELDS.filter(function(z){ return z.k === k; })[0]; return d ? d.label : k; });
   var bt = document.getElementById('mic_all_t');
-  if (bt) bt.innerHTML = (names.length ? '振り分けました：' + esc(names.join('・')) + (r.rest ? '・その他' : '') : '目印の言葉がなかったので「その他」に入れました') + '　<u onclick="event.stopPropagation();undoSplit()">元に戻す</u>';
+  if (bt) bt.innerHTML = (names.length ? '振り分けました：' + esc(names.join('・')) + (r.rest ? '・その他' : '') + '（ちがう所は直してください。直した言葉は次から自動で直ります）' : '振り分けられる言葉がなかったので「その他」に入れました') + '　<u onclick="event.stopPropagation();undoSplit()">元に戻す</u>';
   writeFields(x, f);
 }
 function undoSplit() {
@@ -583,7 +688,7 @@ function listen(k, big) {
   if (REC) { try { REC.stop(); } catch (e) {} REC = null; return; }
   var btn = big || document.getElementById('mic_' + k);
   var bt = big ? document.getElementById('mic_all_t') : null;
-  if (bt) bt.textContent = '聞いています…もう一度タップで止める';
+  if (bt) bt.textContent = '聞いています…話し終わったら、もう一度タップ';
   var before = el ? el.value : '';
   var rec = new SR(); REC = rec;
   rec.lang = 'ja-JP'; rec.interimResults = true; rec.continuous = (k === 'other');
@@ -596,7 +701,7 @@ function listen(k, big) {
     if (el) el.value = (before && k === 'other' ? before + '　' : (k === 'other' ? before : '')) + finalText + interim;
   };
   rec.onerror = function() { if (mark) { mark.textContent = '聞き取れませんでした'; mark.className = 'saved ng'; } };
-  rec.onend = function() { REC = null; if (btn) btn.classList.remove('on'); finalText = fixSpeech(finalText); if (el && !big && finalText) el.value = (before && k === 'other' ? before + '　' : (k === 'other' ? before : '')) + finalText; if (big && finalText) { if (el) el.value = before; applySplit(CUR, finalText, before); return; } if (bt) bt.textContent = '項目の名前を言ってから話すと、その項目に入ります'; if (finalText) saveField(k); else if (mark && mark.textContent.indexOf('聞いています') === 0) mark.textContent = ''; };
+  rec.onend = function() { REC = null; if (btn) btn.classList.remove('on'); finalText = fixSpeech(finalText); if (el && !big && finalText) el.value = (before && k === 'other' ? before + '　' : (k === 'other' ? before : '')) + finalText; if (big && finalText) { if (el) el.value = before; applySplit(CUR, finalText, before); return; } if (bt) bt.textContent = 'ふだんの言い方で話せば、中身を見て各項目に分けます'; if (finalText) { voiceMark(CUR, k, el ? el.value.trim() : ''); saveField(k); } else if (mark && mark.textContent.indexOf('聞いています') === 0) mark.textContent = ''; };
   try { rec.start(); } catch (e) { REC = null; if (btn) btn.classList.remove('on'); }
 }
 function askReject(i) {
