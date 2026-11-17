@@ -996,7 +996,7 @@ function showChecklist() {
       var bin = atob(r.pdf), u = new Uint8Array(bin.length);
       for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
       view.innerHTML = '<h1>契約書類チェックリスト</h1><p class="sub">2本の指で広げると大きく見られます。</p>' +
-        (r.saved ? '<div class="note" style="font-size:13px">このPDFはドライブに保存しました（AI作業場 › 05_応募書類 › ' + esc(S.name) + 'さんのフォルダ）。 <a href="' + esc(r.folder || r.saved) + '" target="_blank" rel="noopener" style="color:var(--g);font-weight:700">フォルダを開く</a></div>' : '') +
+        '<div class="note" style="font-size:13px">' + (r.sent ? 'このチェックリストのPDFは、書類と一緒に全店舗ドライバー管理表の' + esc(S.name) + 'さんのフォルダへ保存されます（事務所で確認後）。' : '「さいごの画面」まで進むと、このチェックリストのPDFが全店舗ドライバー管理表の' + esc(S.name) + 'さんのフォルダへ保存されます。') + '</div>' +
         '<div id="pdfv"></div><button class="btn sec" onclick="showPrint([\'checklist\'])">このチェックリストを印刷する</button>' + back +
         '<a class="btn ghost" href="' + esc(r.url) + '" target="_blank" rel="noopener">スプレッドシートで開く</a>';
       window.scrollTo(0, 0);
@@ -1102,7 +1102,7 @@ function showList(resume) {
     '<button class="btn ' + (inf.tmpl === '済み' ? 'main' : 'sec') + '" onclick="showTmpl()">' + (inf.tmpl === '済み' ? '✓ ' : '') + '新規契約DR情報テンプレート共有' + (inf.tmpl === '済み' ? '（済み）' : '') + '</button>' +
     '<button class="btn ghost" onclick="showGuideSms()">LINE・2つのフォームの案内をSMSで送る</button></div>';
   if (S.checklist) html += '<button class="btn main" onclick="showChecklist()">契約書類チェックリストを見る</button>' + printTag('checklist', true) +
-    '<p class="sub center" style="font-size:12px;margin-top:2px">チェックリストはPDFでドライブに自動で保存されます<br>（AI作業場 › 05_応募書類 › ' + esc(S.name) + 'さんのフォルダ）</p>';
+    '<p class="sub center" style="font-size:12px;margin-top:2px">「さいごの画面」まで進むと、チェックリストのPDFと撮った書類は、きれいなスキャンデータにして<br>全店舗ドライバー管理表の' + esc(S.name) + 'さんのフォルダに自動で保存されます</p>';
   else html += '<p class="sub center">契約書類チェックリストは、このあと自動で作られます。</p>';
   html += '<button class="btn sec" onclick="showPrint()">書類を印刷する（事務所のプリンター）</button>';
   html += '<button class="btn ghost" onclick="askCar()">車（持込・リース）を変える</button>';
