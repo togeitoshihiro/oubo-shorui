@@ -206,8 +206,10 @@ function lastNote(x) { var ls = String(x.other || '').split(/\n/).map(function(l
 function fmtTel(v) { var d = String(v || '').replace(/\D/g, ''); if (!d) return ''; if (d.length === 11) return d.slice(0,3) + '-' + d.slice(3,7) + '-' + d.slice(7); if (d.length === 10) return d.slice(0,2) + '-' + d.slice(2,6) + '-' + d.slice(6); return d; }
 function noReachCount(x) { return (String(x.other || '').match(/電話つながらず/g) || []).length; }
 // 稼働希望日数の1行（例「週5日希望」「希望日数：週3〜4日」）。この行だけなら未対応のまま（2026-11-19 広瀬さん）
-function isDaysLine(l) { l = String(l || '').trim(); return l.length <= 24 && /週\s*[0-9０-９]|毎日/.test(l) && /希望|日数|程度|以上/.test(l) && !/電話つながらず|SMS送信（/.test(l); }
-function otherNoDays(x) { return String(x.other || '').split(/\n/).filter(function(l){ return l.trim() && !isDaysLine(l); }).join('\n'); }
+function isDaysLine(l) { l = String(l || '').trim().replace(/[（(]AI[）)]\s*$/, ''); return l.length <= 24 && /週\s*[0-9０-９]|毎日/.test(l) && /希望|日数|程度|以上/.test(l) && !/電話つながらず|SMS送信（/.test(l); }
+// AIが入れた行（末尾に「（AI）」）。担当者が自分で入れたものではないので、これだけなら未対応のまま（2026-11-19 広瀬さん「要は、担当者が自分で対応したかどうか」）
+function isAiLine(l) { return /[（(]AI[）)]\s*$/.test(String(l || '').trim()); }
+function otherNoDays(x) { return String(x.other || '').split(/\n/).filter(function(l){ return l.trim() && !isDaysLine(l) && !isAiLine(l); }).join('\n'); }
 function wants5(x) { var r = false; String(x.other || '').split(/\n/).forEach(function(l){ if (!isDaysLine(l)) return; if (/毎日/.test(l)) r = true; var n = (l.normalize ? l.normalize('NFKC') : l).match(/週\s*\d+(?:\s*[〜~\-・]\s*(\d+))?/g) || []; n.forEach(function(t){ var d = t.match(/\d+/g).map(Number); if (Math.max.apply(null, d) >= 5) r = true; }); }); return r; }
 function untouched(x) { return (!x.state || /^SMS送信済み$/.test(x.state)) && !x.interview && !x.area && !x.job && !x.exp && !x.prev && !otherNoDays(x).trim() && !x.first; }
 function dkey(s) { var m = String(s || '').match(/(\d{4})\D(\d{1,2})\D(\d{1,2})/); return m ? Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]) : 0; }
