@@ -1111,6 +1111,7 @@ function showList(resume) {
   var laterIdx = steps.map(function(d, i){ return S.later.indexOf(d.key) >= 0 ? i : -1; }).filter(function(i){ return i >= 0; });
   if (laterIdx.length) html += '<button class="btn sec" onclick="cur=' + laterIdx[0] + ';page=1;showDoc()">「あとで」にした書類を撮る</button>';
   if (todo < 0) html += '<button class="btn main" onclick="showFinish()">さいごの画面へ</button>';
+  html += '<button class="btn sec" onclick="pickRedo(true)">スマホにある写真から追加する</button>';
   html += '<button class="btn ghost" onclick="pickRedo()">撮り直す・追加する書類をえらぶ</button>';
   html += scanBox();
   var inf = S.info || {};
@@ -1226,9 +1227,9 @@ function doPrint(all) {
       '<button class="btn main" onclick="showPrint()">印刷の状態を見る</button><button class="btn ghost" onclick="showList(false)">書類の一覧にもどる</button>';
   }, function() { view.innerHTML = '<h1>印刷を依頼できませんでした</h1><p>電波を確かめて、もう一度ためしてください。</p><button class="btn main" onclick="showPrint()">もどる</button>'; });
 }
-function pickRedo() {
-  var html = '<h1>どの書類を撮りますか？</h1>';
-  steps.forEach(function(d, i) { html += '<button class="btn sec" onclick="cur=' + i + ';page=1;showDoc()">' + esc(d.name) + (S.done.indexOf(d.key) >= 0 ? '（撮り直す・追加）' : '') + '</button>'; });
+function pickRedo(fromPhotos) {
+  var html = fromPhotos ? '<h1>どの書類の写真を追加しますか？</h1><p class="sub">書類をえらぶと、スマホの写真がひらきます。</p>' : '<h1>どの書類を撮りますか？</h1>';
+  steps.forEach(function(d, i) { html += '<button class="btn sec" onclick="cur=' + i + ';page=1;' + (fromPhotos ? 'showDoc();openPick()' : 'showDoc()') + '">' + esc(d.name) + (S.done.indexOf(d.key) >= 0 ? '（撮り直す・追加）' : '') + '</button>'; });
   html += '<button class="btn ghost" onclick="showList(false)">もどる</button>';
   view.innerHTML = html;
 }
