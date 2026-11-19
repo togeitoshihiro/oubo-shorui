@@ -1108,7 +1108,6 @@ function showList(resume) {
   });
   html += '</ul>';
   var todo = firstTodo();
-  if (todo >= 0) html += '<button class="btn main" onclick="goNext()">' + (resume && (S.done.length || S.later.length) ? 'つづきを撮る' : '撮りはじめる') + '</button>';
   var laterIdx = steps.map(function(d, i){ return S.later.indexOf(d.key) >= 0 ? i : -1; }).filter(function(i){ return i >= 0; });
   if (laterIdx.length) html += '<button class="btn sec" onclick="cur=' + laterIdx[0] + ';page=1;showDoc()">「あとで」にした書類を撮る</button>';
   if (todo < 0) html += '<button class="btn main" onclick="showFinish()">さいごの画面へ</button>';
