@@ -961,6 +961,10 @@ function tmplText() {
   if (TM.car === '持込') L.push('・持込車両の場合、任意保険の加入状況', '　' + TM.nini);
   L.push('・委託会社名', '　' + TM.itaku, '・委託先営業所名', '　' + TM.eigyo);
   if (TM.biko.trim()) L.push('・備考', TM.biko.trim());
+  var dv = S.drive || { stored: [], waiting: [] };
+  L.push('・書類のドライブ格納（全店舗ドライバー管理表のフォルダ）');
+  L.push('　' + (dv.stored.length ? '格納済み：' + dv.stored.join('・') : '格納済みの書類はまだありません'));
+  if (dv.waiting.length) L.push('　格納待ち（AIが確認中）：' + dv.waiting.join('・'));
   L.push('', '（担当：' + (S.tanto || '') + '）');
   return L.join('\n');
 }
@@ -969,6 +973,12 @@ function previewTmpl() {
   var miss = [['name', '名前'], ['start', '稼働開始予定日'], ['car', '車両'], ['kamotsu', '貨物保険'], ['itaku', '委託会社名'], ['eigyo', '委託先営業所名']]
     .filter(function(m){ return !TM[m[0]]; }).map(function(m){ return m[1]; });
   if (TM.car === '持込' && !TM.nini) miss.push('任意保険');
+  if (!previewTmpl.fresh) {  // ドライブ格納の最新の状態を読んでから文面を出す
+    loading('書類のドライブ格納を確かめています…');
+    run('getState', [TOKEN], function(s) { if (s && s.ok) { S.drive = s.drive; S.scans = s.scans; } previewTmpl.fresh = true; previewTmpl(); previewTmpl.fresh = false; },
+      function() { previewTmpl.fresh = true; previewTmpl(); previewTmpl.fresh = false; });
+    return;
+  }
   var test = S.no === '練習用';
   var html = '<h1>この文面で送ります</h1>' +
     (miss.length ? '<div class="note"><b>まだ空の項目があります：</b>' + esc(miss.join('・')) + '</div>' : '') +
@@ -1103,6 +1113,7 @@ function showList(resume) {
   if (laterIdx.length) html += '<button class="btn sec" onclick="cur=' + laterIdx[0] + ';page=1;showDoc()">「あとで」にした書類を撮る</button>';
   if (todo < 0) html += '<button class="btn main" onclick="showFinish()">さいごの画面へ</button>';
   html += '<button class="btn ghost" onclick="pickRedo()">撮り直す・追加する書類をえらぶ</button>';
+  html += scanBox();
   var inf = S.info || {};
   html += '<h2>契約情報</h2><div class="card" style="font-size:14px">' +
     [['稼働開始', inf.start], ['希望日数', inf.days], ['ハッピーボーナス', inf.bonus], ['任意保険', inf.nini], ['貨物保険', inf.kamotsu], ['委託先', inf.itaku], ['管理担当', (inf.kanri || S.kanri) ? (inf.kanri || S.kanri) + 'さん' : '']].map(function(p){ return '<div><span class="sub" style="font-size:12px">' + p[0] + '</span>　' + esc(p[1] || '—') + '</div>'; }).join('') +
@@ -1120,6 +1131,50 @@ function showList(resume) {
   if (S.no === '練習用') html += '<button class="btn danger" onclick="resetTest()">テストをリセット（最初の状態にもどす）</button>';
   view.innerHTML = html;
 }
+// ===== ドライブアプリのスキャン →「スキャン受付に格納完了」（2026-11-19）=====
+function scanBox() {
+  var h = '<h2>紙の書類はドライブアプリでスキャン（おすすめ）</h2><div class="card">' +
+    '<p style="font-size:14px;margin-top:0">このアプリのカメラだと、紙の書類が正しくスキャンされない（暗い・ゆがむ・切れる）ことがあります。<b>住民票・印鑑証明・履歴書などの紙の書類は、Googleドライブアプリの「スキャン」</b>で撮ってください。</p>' +
+    '<ol style="font-size:14px;padding-left:20px;margin:6px 0 10px">' +
+    '<li>ドライブアプリの「スキャン」で撮る（何枚・何種類でもまとめてOK）</li>' +
+    '<li>保存先は「共有アイテム」→「スキャン受付」</li>' +
+    '<li>このアプリにもどって、下のボタンを押す</li></ol>' +
+    '<button class="btn main" onclick="askScanDone()">スキャン受付に格納完了</button>' +
+    '<p class="sub" style="font-size:12px;margin:4px 0 0">AIが中身を確かめて、' + esc(S.name) + 'さんの書類として受け付けます（数分かかります）。結果はここに出ます。</p>';
+  var sc = S.scans || [];
+  if (sc.length) {
+    h += '<div style="margin-top:10px;font-size:13px">';
+    sc.forEach(function(x) {
+      var t = String(x.at).replace(/^\d{4}\//, '').replace(/:\d{2}$/, '');
+      var st = x.state === '受付済み' ? '<b class="mark-ok">受付済み</b>' : x.state === '要確認' ? '<b class="mark-no">要確認</b>' : '<b class="mark-later">AIが確認中…</b>';
+      h += '<div style="border-top:1px solid #ddd;padding:6px 0">' + esc(t) + '（' + esc(x.by || '') + 'さん）　' + st + (x.result ? '<div style="white-space:pre-wrap">' + esc(x.result) + '</div>' : '') + '</div>';
+    });
+    h += '<button class="btn ghost" style="margin-top:6px" onclick="reloadState()">最新の状態にする</button></div>';
+  }
+  return h + '</div>';
+}
+function askScanDone() {
+  view.innerHTML = '<h1>スキャン受付に格納完了</h1><div class="note"><p>' + esc(S.name) + 'さんの書類を、ドライブアプリでスキャンして<b>「スキャン受付」に保存し終わりましたか？</b></p>' +
+    '<p style="font-size:13px">ボタンを押すと、あなたが前回このボタンを押したあとに「スキャン受付」へ保存したスキャンを、' + esc(S.name) + 'さんの書類としてAIが確認します。ほかの人の書類をスキャンしたときは、先にそちらの画面でボタンを押してください。</p></div>' +
+    '<button class="btn main" onclick="doScanDone()">保存し終わった（AIに確認してもらう）</button><button class="btn ghost" onclick="showList(false)">もどる</button>';
+  window.scrollTo(0, 0);
+}
+function doScanDone() {
+  loading('受け付けています…');
+  run('scanDone', [TOKEN, STAFF || ''], function(r) {
+    if (!r || !r.ok) { showError(); return; }
+    S.scans = r.scans || S.scans;
+    view.innerHTML = '<div class="big-check">✓</div><h1 class="center">受け付けました</h1><p class="center sub">AIが中身を確かめて、数分で書類の一覧に反映します。<br>結果は「' + esc(S.name) + 'さんの書類」の画面の下に出ます。</p><button class="btn main" onclick="showList(false)">書類の一覧にもどる</button>';
+  });
+}
+function reloadState() {
+  loading('最新の状態を読み込んでいます…');
+  run('getState', [TOKEN], function(s) {
+    if (s && s.ok) { ['done', 'later', 'scans', 'drive', 'printed', 'checklist', 'info'].forEach(function(k){ if (s[k] !== undefined) S[k] = s[k]; }); }
+    showList(false);
+  });
+}
+
 // ===== 遠隔印刷（事務所のプリンター J7600CDW。事務所のMacが1分おきに依頼を見て印刷する）=====
 function printTag(k, block) {
   var p = (S && S.printed || {})[k];
